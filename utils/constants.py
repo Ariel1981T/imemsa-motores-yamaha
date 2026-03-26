@@ -18,7 +18,7 @@ def _h(pw: str) -> str:
 
 USERS: dict[str, dict] = {
     "dgonzalez": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Imemsa2024*"),
         "name": "David González",
         "role": "Supervisor",
         "email": "dgonzalez@imemsa.com.mx",
@@ -62,152 +62,168 @@ USERS: dict[str, dict] = {
         "avatar": "CM",
         "color": "#DC2626",
     },
+    # ── Nuevo usuario: Karla Merino (Tesorería) ──────────────────────────────
+    "kmerino": {
+        "password_hash": _h("Imemsa2024*"),
+        "name": "Karla Merino",
+        "role": "Tesorería",
+        "email": "kmerino@imemsa.com.mx",
+        "can_create_orders": False,
+        "avatar": "KM",
+        "color": "#0891B2",
+    },
 }
 
-# ── Catálogo de 19 actividades ───────────────────────────────────────────────
+# ── Catálogo de 19 actividades (nombres según Yamaha_StageCatalog col. C) ────
 ACTIVITIES_TEMPLATE: list[dict] = [
-    # Fase 1 — Solicitud y Autorización
+    # Fase 1 — Planificación
     {
-        "id": 1, "phase": "Solicitud",
-        "name": "Solicitud de Compra",
-        "description": "Generar la requisición formal indicando modelo, cantidad y justificación técnica.",
+        "id": 1, "phase": "Planificación",
+        "name": "Establecer presupuesto de compras",
+        "description": "Definir el sugerido de compra y establecer el presupuesto anual para motores.",
         "responsible_key": "dgonzalez",
+        "days_allocated": 1,
+    },
+    {
+        "id": 2, "phase": "Planificación",
+        "name": "Revisar y determinar el importe de compra",
+        "description": "Analizar historial, mercado y necesidades para fijar el importe definitivo.",
+        "responsible_key": "jespinoza",
+        "days_allocated": 1,
+    },
+    {
+        "id": 3, "phase": "Planificación",
+        "name": "Ajustes finales",
+        "description": "Realizar ajustes finales al sugerido de compra con base en retroalimentación comercial.",
+        "responsible_key": "jespinoza",
+        "days_allocated": 1,
+    },
+    {
+        "id": 4, "phase": "Planificación",
+        "name": "Autorizar el sugerido",
+        "description": "Obtener autorización formal del sugerido de compra por parte de la supervisión.",
+        "responsible_key": "dgonzalez",
+        "days_allocated": 1,
+    },
+    # Fase 2 — Pedido y Confirmación
+    {
+        "id": 5, "phase": "Pedido y Confirmación",
+        "name": "Colocación de pedido a Japón",
+        "description": "Enviar orden de compra oficial a Yamaha Japón con especificaciones y cantidades.",
+        "responsible_key": "jespinoza",
+        "days_allocated": 1,
+    },
+    {
+        "id": 6, "phase": "Pedido y Confirmación",
+        "name": "Aviso a áreas sustantivas",
+        "description": "Notificar a Tesorería, Logística y demás áreas involucradas sobre el pedido colocado.",
+        "responsible_key": "jespinoza",
+        "days_allocated": 1,
+    },
+    {
+        "id": 7, "phase": "Pedido y Confirmación",
+        "name": "Japón confirma la producción",
+        "description": "Recibir confirmación formal de Yamaha Japón sobre aceptación y fechas de producción.",
+        "responsible_key": "jespinoza",
+        "days_allocated": 20,
+    },
+    # Fase 3 — Producción Proveedor
+    {
+        "id": 8, "phase": "Producción Proveedor",
+        "name": "Producción de los motores",
+        "description": "Seguimiento al proceso de fabricación de los motores en planta Yamaha Japón.",
+        "responsible_key": "jespinoza",
+        "days_allocated": 90,
+    },
+    # Fase 4 — Pedido y Confirmación (post-producción)
+    {
+        "id": 9, "phase": "Pedido y Confirmación",
+        "name": "Sales confirmation",
+        "description": "Recibir sales confirmation con fechas definitivas de pago y llegada de mercancía.",
+        "responsible_key": "jespinoza",
+        "days_allocated": 1,
+    },
+    # Fase 5 — Embarque y Pago
+    {
+        "id": 10, "phase": "Embarque y Pago",
+        "name": "Pago de motores",
+        "description": "Procesar transferencia internacional de pago de los motores conforme sales confirmation.",
+        "responsible_key": "kmerino",
         "days_allocated": 2,
     },
     {
-        "id": 2, "phase": "Solicitud",
-        "name": "Validación Técnica del Motor",
-        "description": "Verificar especificaciones técnicas requeridas vs. catálogo Yamaha vigente.",
-        "responsible_key": "dgonzalez",
-        "days_allocated": 3,
-    },
-    # Fase 2 — Cotización
-    {
-        "id": 3, "phase": "Cotización",
-        "name": "Solicitud de Cotización al Proveedor",
-        "description": "Enviar RFQ formal al distribuidor Yamaha autorizado.",
+        "id": 11, "phase": "Embarque y Pago",
+        "name": "Confirmación de pago",
+        "description": "Enviar comprobante de pago al proveedor y obtener acuse de recibo.",
         "responsible_key": "jespinoza",
-        "days_allocated": 2,
+        "days_allocated": 1,
     },
     {
-        "id": 4, "phase": "Cotización",
-        "name": "Recepción de Cotizaciones",
-        "description": "Recibir y concentrar propuestas económicas del proveedor.",
-        "responsible_key": "jespinoza",
+        "id": 12, "phase": "Embarque y Pago",
+        "name": "Envío de facturas y lista de series",
+        "description": "Recibir de Yamaha las facturas comerciales y listado de números de serie por motor.",
+        "responsible_key": "cmunoz",
         "days_allocated": 7,
     },
     {
-        "id": 5, "phase": "Cotización",
-        "name": "Análisis Comparativo",
-        "description": "Elaborar cuadro comparativo de precios, tiempos y condiciones.",
-        "responsible_key": "jespinoza",
-        "days_allocated": 3,
-    },
-    # Fase 3 — Autorización y OC
-    {
-        "id": 6, "phase": "Autorización",
-        "name": "Autorización de Dirección",
-        "description": "Presentar comparativo y obtener visto bueno de Dirección General.",
-        "responsible_key": "dgonzalez",
-        "days_allocated": 2,
-    },
-    {
-        "id": 7, "phase": "Autorización",
-        "name": "Gestión de Presupuesto",
-        "description": "Validar disponibilidad de presupuesto y afectación contable.",
-        "responsible_key": "ccastaneda",
-        "days_allocated": 3,
-    },
-    {
-        "id": 8, "phase": "Autorización",
-        "name": "Generación de Orden de Compra",
-        "description": "Formalizar la OC en el sistema ERP con todos los datos del pedido.",
-        "responsible_key": "fgarduno",
-        "days_allocated": 2,
-    },
-    {
-        "id": 9, "phase": "Autorización",
-        "name": "Envío de OC al Proveedor",
-        "description": "Transmitir la OC oficial firmada al distribuidor Yamaha.",
-        "responsible_key": "fgarduno",
+        "id": 13, "phase": "Embarque y Pago",
+        "name": "Embarque",
+        "description": "Confirmar el embarque de los motores en puerto de origen Japón.",
+        "responsible_key": "cmunoz",
         "days_allocated": 1,
     },
-    # Fase 4 — Seguimiento de Producción
     {
-        "id": 10, "phase": "Producción",
-        "name": "Confirmación del Proveedor",
-        "description": "Recibir acuse de recibo y confirmación de fecha estimada de entrega.",
-        "responsible_key": "jespinoza",
-        "days_allocated": 5,
-    },
-    {
-        "id": 11, "phase": "Producción",
-        "name": "Anticipo / Primer Pago",
-        "description": "Procesar transferencia de anticipo conforme condiciones pactadas.",
-        "responsible_key": "ccastaneda",
-        "days_allocated": 5,
-    },
-    {
-        "id": 12, "phase": "Producción",
-        "name": "Seguimiento de Fabricación",
-        "description": "Monitorear avance de producción y comunicación con proveedor.",
-        "responsible_key": "jespinoza",
+        "id": 14, "phase": "Embarque y Pago",
+        "name": "Trayecto de contenedor en mar",
+        "description": "Monitorear el trayecto marítimo del contenedor desde Japón hasta México.",
+        "responsible_key": "cmunoz",
         "days_allocated": 30,
     },
     {
-        "id": 13, "phase": "Producción",
-        "name": "Notificación de Embarque",
-        "description": "Recibir documentos de embarque: BL, factura comercial, packing list.",
-        "responsible_key": "jespinoza",
-        "days_allocated": 3,
-    },
-    # Fase 5 — Importación y Logística
-    {
-        "id": 14, "phase": "Importación",
-        "name": "Documentos de Importación",
-        "description": "Validar y tramitar pedimento de importación con agente aduanal.",
+        "id": 15, "phase": "Embarque y Pago",
+        "name": "Arribo a puerto",
+        "description": "Confirmar arribo del contenedor al puerto mexicano y coordinar con agente aduanal.",
         "responsible_key": "cmunoz",
-        "days_allocated": 5,
-    },
-    {
-        "id": 15, "phase": "Importación",
-        "name": "Pago de Liquidación",
-        "description": "Procesar pago final del saldo y derechos de importación (IVA/IGI).",
-        "responsible_key": "ccastaneda",
-        "days_allocated": 3,
-    },
-    {
-        "id": 16, "phase": "Importación",
-        "name": "Gestión con Agente Aduanal",
-        "description": "Coordinar proceso de despacho aduanal y verificación de mercancias.",
-        "responsible_key": "cmunoz",
-        "days_allocated": 7,
-    },
-    {
-        "id": 17, "phase": "Importación",
-        "name": "Liberación en Aduana",
-        "description": "Confirmar levante de mercancía y custodia para transporte.",
-        "responsible_key": "cmunoz",
-        "days_allocated": 5,
-    },
-    {
-        "id": 18, "phase": "Importación",
-        "name": "Transporte a Planta IMEMSA",
-        "description": "Coordinar flete terrestre desde aduana hasta instalaciones en Veracruz.",
-        "responsible_key": "cmunoz",
-        "days_allocated": 3,
-    },
-    # Fase 6 — Recepción y Cierre
-    {
-        "id": 19, "phase": "Recepción",
-        "name": "Recepción, Inspección y Cierre",
-        "description": "Inspeccionar motores recibidos, dar alta en sistema ERP y cerrar expediente.",
-        "responsible_key": "dgonzalez",
         "days_allocated": 2,
+    },
+    # Fase 6 — Aduana y Recepción
+    {
+        "id": 16, "phase": "Aduana y Recepción",
+        "name": "Cruce en aduana y pago de gastos",
+        "description": "Gestionar el despacho aduanal, pago de impuestos (IVA/IGI) y gastos de importación.",
+        "responsible_key": "cmunoz",
+        "days_allocated": 5,
+    },
+    {
+        "id": 17, "phase": "Aduana y Recepción",
+        "name": "Salida y monitoreo de embarque",
+        "description": "Confirmar salida de aduana y monitorear el traslado terrestre hacia CEDIS.",
+        "responsible_key": "cmunoz",
+        "days_allocated": 1,
+    },
+    {
+        "id": 18, "phase": "Aduana y Recepción",
+        "name": "Arribo a CEDIS",
+        "description": "Recibir el contenedor en el centro de distribución IMEMSA y programar descarga.",
+        "responsible_key": "cmunoz",
+        "days_allocated": 1,
+    },
+    {
+        "id": 19, "phase": "Aduana y Recepción",
+        "name": "Recibo de motores en sistema Oracle",
+        "description": "Inspeccionar motores, dar de alta en sistema Oracle y cerrar el expediente del pedido.",
+        "responsible_key": "dgonzalez",
+        "days_allocated": 1,
     },
 ]
 
-PHASES = ["Solicitud", "Cotización", "Autorización", "Producción", "Importación", "Recepción"]
+PHASES = [
+    "Planificación",
+    "Pedido y Confirmación",
+    "Producción Proveedor",
+    "Embarque y Pago",
+    "Aduana y Recepción",
+]
 
 MOTOR_MODELS = [
     "Yamaha F15C", "Yamaha F20B", "Yamaha F25D",
