@@ -201,7 +201,18 @@ def inject_css() -> None:
         border-radius: 8px !important;
         border: 1.5px solid #D1D9E8 !important;
         font-family: 'Source Sans 3', sans-serif !important;
+        background: #FFFFFF !important;
+        color: #1F2937 !important;
     }
+    [data-testid="stTextInput"] input::placeholder,
+    [data-testid="stTextArea"] textarea::placeholder {
+        color: #9CA3AF !important;
+    }
+    [data-testid="stSelectbox"] div[data-baseweb="select"] div {
+        background: #FFFFFF !important;
+        color: #1F2937 !important;
+    }
+    [data-testid="stNumberInput"] input { color: #1F2937 !important; }
     [data-testid="stTextInput"] input:focus,
     [data-testid="stTextArea"] textarea:focus {
         border-color: #0D2B6E !important;
@@ -256,13 +267,26 @@ def _logo_img_tag(width: int = 160, style: str = "") -> str:
 
 def logo_sidebar() -> None:
     st.markdown(
-        f'<div style="padding:18px 16px 10px 16px;">'
-        f'{_logo_img_tag(width=150, style="filter:brightness(0) invert(1);" )}'
-        f'<div style="font-family:\'Source Sans 3\',sans-serif;font-size:.7rem;'
-        f'font-weight:600;color:#8EA8D8;letter-spacing:2px;margin-top:4px;padding-left:2px;">'
-        f'MOTORES YAMAHA</div>'
-        f'<div style="height:2px;background:#C41E2E;border-radius:1px;margin-top:4px;"></div>'
-        f'</div>',
+        """<div style="padding:18px 16px 12px 16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#C41E2E;
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+          fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="2" x2="12" y2="22"/>
+          <line x1="6" y1="7" x2="18" y2="7"/>
+          <path d="M5 19 Q12 22 19 19"/>
+          </svg></div>
+          <div>
+            <div style="font-family:Barlow Condensed,Arial,sans-serif;font-size:1.3rem;
+            font-weight:800;color:#fff;letter-spacing:2px;line-height:1;">IMEMSA</div>
+            <div style="font-size:.62rem;font-weight:600;color:#8EA8D8;
+            letter-spacing:1.8px;margin-top:1px;">MOTORES YAMAHA</div>
+          </div>
+        </div>
+        <div style="height:2px;background:#C41E2E;border-radius:1px;margin-top:10px;"></div>
+        </div>""",
         unsafe_allow_html=True,
     )
 
@@ -882,11 +906,12 @@ def page_new_order() -> None:
     with st.form("new_order_form"):
         col1, col2 = st.columns(2)
         with col1:
-            motor_model = st.selectbox("Modelo de motor Yamaha", MOTOR_MODELS)
-            quantity    = st.number_input("Cantidad de motores", min_value=1, max_value=50, value=1, step=1)
+            motor_model = st.text_input("Nombre del pedido",
+                                        placeholder="Ej. Compra Motores 40HP — Temporada 2026")
+            quantity    = st.number_input("Cantidad de motores", min_value=1, value=1, step=1)
         with col2:
-            supplier    = st.text_input("Proveedor / Distribuidor",
-                                        placeholder="Ej. Distribuidora Marítima del Golfo SA de CV")
+            supplier    = st.text_input("Monto aproximado de O.C.",
+                                        placeholder="Ej. $250,000 MXN")
             _           = st.empty()
 
         notes = st.text_area("Justificación / Notas adicionales", height=100,
@@ -901,8 +926,8 @@ def page_new_order() -> None:
                     f"asignada a **David González** con fecha límite de 2 días hábiles.")
 
         if submitted:
-            if not supplier.strip():
-                st.error("El campo Proveedor es obligatorio.")
+            if not motor_model.strip():
+                st.error("El campo Nombre del pedido es obligatorio.")
             else:
                 ok, msg, new_order = create_order(
                     data, motor_model, int(quantity),
