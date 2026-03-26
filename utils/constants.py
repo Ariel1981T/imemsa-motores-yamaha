@@ -80,7 +80,7 @@ ACTIVITIES_TEMPLATE: list[dict] = [
     {
         "id": 1, "phase": "Planificación",
         "name": "Establecer presupuesto de compras",
-        "description": "Definir el sugerido de compra y establecer el presupuesto anual para motores.",
+        "description": "Definir el sugerido de compra y establecer el presupuesto.",
         "responsible_key": "dgonzalez",
         "days_allocated": 1,
     },
@@ -101,7 +101,7 @@ ACTIVITIES_TEMPLATE: list[dict] = [
     {
         "id": 4, "phase": "Planificación",
         "name": "Autorizar el sugerido",
-        "description": "Obtener autorización formal del sugerido de compra por parte de la supervisión.",
+        "description": "Obtener autorización formal del sugerido de compra por parte de la Dirección.",
         "responsible_key": "dgonzalez",
         "days_allocated": 1,
     },
