@@ -208,6 +208,36 @@ def inject_css() -> None:
     [data-testid="stTextArea"] textarea::placeholder {
         color: #9CA3AF !important;
     }
+    /* Force all widget labels to dark text in main area */
+    [data-testid="stForm"] label,
+    [data-testid="stVerticalBlock"] label,
+    .main [data-testid="stWidgetLabel"] p,
+    .main [data-testid="stWidgetLabel"] span,
+    .main label p, .main label span,
+    .main [data-testid="stTextInput"] label,
+    .main [data-testid="stSelectbox"] label,
+    .main [data-testid="stNumberInput"] label,
+    .main [data-testid="stTextArea"] label,
+    .main [data-testid="stFileUploader"] label,
+    .main [data-testid="stExpander"] summary span,
+    .main [data-testid="stExpander"] p,
+    .main p, .main span, .main div {
+        color: #1F2937 !important;
+    }
+    /* Exceptions: keep sidebar text white */
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] div,
+    [data-testid="stSidebar"] label {
+        color: #E8EDF7 !important;
+    }
+    /* Keep our custom HTML cards readable */
+    .metric-card .mc-value { color: #0D2B6E !important; }
+    .metric-card .mc-label { color: #8592A3 !important; }
+    .act-name { color: #0D2B6E !important; }
+    .order-number { color: #0D2B6E !important; }
+    /* Info boxes */
+    [data-testid="stAlert"] p { color: inherit !important; }
     [data-testid="stSelectbox"] div[data-baseweb="select"] div {
         background: #FFFFFF !important;
         color: #1F2937 !important;
@@ -575,7 +605,7 @@ def page_dashboard() -> None:
     c1, c2, c3, c4, c5 = st.columns(5)
     _kpi(c1, str(len(active)),          "Pedidos Activos",  "#0D2B6E")
     _kpi(c2, str(len(completed)),        "Completados",      "#059669")
-    _kpi(c3, f"{annual_count}/{MAX_ANNUAL_ORDERS}", "Pedidos {year}", "#7C3AED")
+    _kpi(c3, str(annual_count), "Pedidos", "#7C3AED")
     _kpi(c4, str(sem["red"]),            "Actividades Venc.", "#C41E2E")
     _kpi(c5, str(sem["yellow"]),         "En Riesgo",        "#D97706")
 
