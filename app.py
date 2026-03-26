@@ -325,44 +325,100 @@ def _act_row_class(status: str) -> str:
 # ══════════════════════════════════════════════════════════
 
 def page_login() -> None:
-    # Fondo degradado
-    st.markdown(
-        '<style>[data-testid="stAppViewContainer"]{background:'
-        'linear-gradient(135deg,#0D2B6E 0%,#1A3F8F 40%,#F0F3F9 100%)!important;}</style>',
-        unsafe_allow_html=True,
-    )
+    # ── Estilos exclusivos de la página de login ─────────────────────────────
+    st.markdown("""
+    <style>
+    /* Fondo degradado navy */
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg,#0D2B6E 0%,#1A3F8F 55%,#16387A 100%) !important;
+    }
+    /* Ocultar fondos blancos que Streamlit inyecta en la columna central */
+    [data-testid="stAppViewContainer"] [data-testid="stVerticalBlock"],
+    [data-testid="stAppViewContainer"] [data-testid="column"] > div:first-child {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    /* Tarjeta login: aplicada al bloque de la columna central */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    /* Campos del formulario en login con fondo oscuro semitransparente */
+    .login-col [data-testid="stTextInput"] input {
+        background: rgba(255,255,255,.12) !important;
+        border: 1.5px solid rgba(255,255,255,.30) !important;
+        color: #fff !important;
+        border-radius: 8px !important;
+    }
+    .login-col [data-testid="stTextInput"] input::placeholder { color: rgba(255,255,255,.45) !important; }
+    .login-col [data-testid="stTextInput"] label { color: rgba(255,255,255,.85) !important; font-weight:600 !important; }
+    /* Botón "Ingresar" con color IMEMSA */
+    .login-col [data-testid="stFormSubmitButton"] button {
+        background: #C41E2E !important;
+        border: none !important;
+        color: #fff !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
+        letter-spacing: .4px !important;
+        padding: 12px !important;
+        transition: background .2s !important;
+    }
+    .login-col [data-testid="stFormSubmitButton"] button:hover {
+        background: #0D2B6E !important;
+    }
+    /* Error message en login */
+    .login-col [data-testid="stAlert"] {
+        background: rgba(196,30,46,.18) !important;
+        border: 1px solid #C41E2E !important;
+        color: #fff !important;
+        border-radius: 8px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    col_l, col_c, col_r = st.columns([1, 1.2, 1])
+    col_l, col_c, col_r = st.columns([1, 1.1, 1])
     with col_c:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        # Clase para apuntar CSS
+        st.markdown('<div class="login-col">', unsafe_allow_html=True)
+
+        # Logo IMEMSA centrado
         logo_login()
+
+        # Subtítulo en blanco
         st.markdown(
-            '<p style="text-align:center;color:#4B5563;font-size:.9rem;margin-bottom:28px;">'
+            '<p style="text-align:center;color:rgba(255,255,255,.82);font-size:.88rem;'
+            'margin-bottom:28px;margin-top:4px;letter-spacing:.2px;">'
             'Sistema de Seguimiento · Proceso Transversal de Compra de Motores</p>',
             unsafe_allow_html=True,
         )
 
+        # Formulario
         with st.form("login_form"):
-            username = st.text_input("👤  Usuario", placeholder="Ej. dgonzalez")
-            password = st.text_input("🔒  Contraseña", type="password")
-            submitted = st.form_submit_button("Ingresar al sistema", use_container_width=True, type="primary")
+            username  = st.text_input("👤  Usuario", placeholder="Ej. dgonzalez")
+            password  = st.text_input("🔒  Contraseña", type="password")
+            submitted = st.form_submit_button(
+                "Ingresar al sistema", use_container_width=True, type="primary"
+            )
 
         if submitted:
             ok, user_info = verify_login(username, password)
             if ok:
-                st.session_state["user"]      = user_info
-                st.session_state["page"]      = "dashboard"
+                st.session_state["user"]             = user_info
+                st.session_state["page"]             = "dashboard"
                 st.session_state["selected_order_id"] = None
                 st.rerun()
             else:
                 st.error("Usuario o contraseña incorrectos.")
 
+        # Pie de página — año 2026
         st.markdown(
-            '<p style="text-align:center;color:#9CA3AF;font-size:.74rem;margin-top:20px;">'
-            '© 2024 IMEMSA — Uso interno. Acceso restringido.</p>',
+            '<p style="text-align:center;color:rgba(255,255,255,.40);font-size:.74rem;margin-top:24px;">'
+            '© 2026 IMEMSA — Uso interno. Acceso restringido.</p>',
             unsafe_allow_html=True,
         )
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════
