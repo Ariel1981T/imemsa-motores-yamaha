@@ -1024,8 +1024,6 @@ def page_diagnostico() -> None:
     st.markdown('<div class="section-header">🔧 Diagnóstico Google Sheets</div>',
                 unsafe_allow_html=True)
 
-    import streamlit as st
-
     # ── Test 1: secrets disponibles ───────────────────────────────────────────
     st.markdown("### 1. Secrets de Streamlit")
     try:
