@@ -66,7 +66,7 @@ USERS: dict[str, dict] = {
     "ratlaco": {
         "password_hash": _h("Imemsa2026*"),
         "name": "Ricardo Atlaco",
-        "role": "Tesorería",
+        "role": "Director de Finanzas",
         "email": "ratlaco@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "KM",
