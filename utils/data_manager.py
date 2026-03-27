@@ -127,6 +127,7 @@ def create_order(
     notes: str,
     created_by: str,
     year: Optional[int] = None,
+    created_at: Optional[str] = None,
 ) -> tuple[bool, str, dict | None]:
     """
     Regresa (ok, mensaje, orden_creada).
@@ -171,7 +172,7 @@ def create_order(
         "supplier":     supplier,
         "notes":        notes,
         "created_by":   created_by,
-        "created_at":   today_str(),
+        "created_at":   created_at or today_str(),
         "status":       "active",
         "activities":   activities,
         "progress":     0,
