@@ -18,7 +18,7 @@ def _h(pw: str) -> str:
 
 USERS: dict[str, dict] = {
     "dgonzalez": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "David González",
         "role": "Supervisor",
         "email": "dgonzalez@imemsa.com.mx",
@@ -27,7 +27,7 @@ USERS: dict[str, dict] = {
         "color": "#2563EB",
     },
     "fgarduno": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "Flor Garduño",
         "role": "Responsable de Proceso",
         "email": "fgarduno@imemsa.com.mx",
@@ -36,7 +36,7 @@ USERS: dict[str, dict] = {
         "color": "#7C3AED",
     },
     "jespinoza": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
         "email": "jespinoza@imemsa.com.mx",
@@ -44,17 +44,17 @@ USERS: dict[str, dict] = {
         "avatar": "JE",
         "color": "#059669",
     },
-    "ccastaneda": {
-        "password_hash": _h("Imemsa2024*"),
-        "name": "Carmen Castañeda",
+    "kmerino": {
+        "password_hash": _h("Imemsa2026*"),
+        "name": "Karla Merino",
         "role": "Líder Tesorería",
-        "email": "ccastaneda@imemsa.com.mx",
+        "email": "kmerino@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "CC",
         "color": "#D97706",
     },
     "cmuniz": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "Claudia Muñoz",
         "role": "Líder Logística",
         "email": "cmuniz@imemsa.com.mx",
@@ -63,11 +63,11 @@ USERS: dict[str, dict] = {
         "color": "#DC2626",
     },
     # ── Nuevo usuario: Karla Merino (Tesorería) ──────────────────────────────
-    "kmerino": {
-        "password_hash": _h("Imemsa2024*"),
-        "name": "Karla Merino",
+    "ratlaco": {
+        "password_hash": _h("Imemsa2026*"),
+        "name": "Ricardo Atlaco",
         "role": "Tesorería",
-        "email": "kmerino@imemsa.com.mx",
+        "email": "ratlaco@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "KM",
         "color": "#0891B2",
