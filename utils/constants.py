@@ -35,7 +35,7 @@ USERS: dict[str, dict] = {
         "avatar": "FG",
         "color": "#7C3AED",
     },
-    "jespinoza": {
+    "jespinosa": {
         "password_hash": _h("Imemsa2026*"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
