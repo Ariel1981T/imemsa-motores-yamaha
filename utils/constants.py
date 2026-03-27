@@ -55,7 +55,7 @@ USERS: dict[str, dict] = {
     },
     "cmuniz": {
         "password_hash": _h("Imemsa2026*"),
-        "name": "Claudia Muñoz",
+        "name": "Claudia Muñiz",
         "role": "Líder Logística",
         "email": "cmuniz@imemsa.com.mx",
         "can_create_orders": False,
