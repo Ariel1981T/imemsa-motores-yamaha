@@ -18,7 +18,7 @@ def _h(pw: str) -> str:
 
 USERS: dict[str, dict] = {
     "dgonzalez": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Imemsa2024*"),
         "name": "David González",
         "role": "Supervisor",
         "email": "dgonzalez@imemsa.com.mx",
@@ -26,35 +26,35 @@ USERS: dict[str, dict] = {
         "avatar": "DG",
         "color": "#2563EB",
     },
-    "mgarduno": {
-        "password_hash": _h("Imemsa2026*"),
+    "fgarduno": {
+        "password_hash": _h("Imemsa2024*"),
         "name": "Flor Garduño",
         "role": "Responsable de Proceso",
-        "email": "mgarduno@imemsa.com.mx",
+        "email": "fgarduno@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "FG",
         "color": "#7C3AED",
     },
     "jespinoza": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Imemsa2024*"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
-        "email": "jespinosa@imemsa.com.mx",
+        "email": "jespinoza@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "JE",
         "color": "#059669",
     },
-    "kmerino": {
-        "password_hash": _h("Imemsa2026*"),
+    "ccastaneda": {
+        "password_hash": _h("Imemsa2024*"),
         "name": "Carmen Castañeda",
         "role": "Líder Tesorería",
-        "email": "kmerino@imemsa.com.mx",
+        "email": "ccastaneda@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "CC",
         "color": "#D97706",
     },
-    "cmunoz": {
-        "password_hash": _h("Imemsa2026*"),
+    "cmuniz": {
+        "password_hash": _h("Imemsa2024*"),
         "name": "Claudia Muñoz",
         "role": "Líder Logística",
         "email": "cmuniz@imemsa.com.mx",
@@ -63,8 +63,8 @@ USERS: dict[str, dict] = {
         "color": "#DC2626",
     },
     # ── Nuevo usuario: Karla Merino (Tesorería) ──────────────────────────────
-    "ratlaco": {
-        "password_hash": _h("Imemsa2026*"),
+    "kmerino": {
+        "password_hash": _h("Imemsa2024*"),
         "name": "Karla Merino",
         "role": "Tesorería",
         "email": "kmerino@imemsa.com.mx",
@@ -80,7 +80,7 @@ ACTIVITIES_TEMPLATE: list[dict] = [
     {
         "id": 1, "phase": "Planificación",
         "name": "Establecer presupuesto de compras",
-        "description": "Definir el sugerido de compra y establecer el presupuesto.",
+        "description": "Definir el sugerido de compra y establecer el presupuesto anual para motores.",
         "responsible_key": "dgonzalez",
         "days_allocated": 1,
     },
@@ -101,7 +101,7 @@ ACTIVITIES_TEMPLATE: list[dict] = [
     {
         "id": 4, "phase": "Planificación",
         "name": "Autorizar el sugerido",
-        "description": "Obtener autorización formal del sugerido de compra por parte de la Dirección.",
+        "description": "Obtener autorización formal del sugerido de compra por parte de la supervisión.",
         "responsible_key": "dgonzalez",
         "days_allocated": 1,
     },
@@ -162,28 +162,28 @@ ACTIVITIES_TEMPLATE: list[dict] = [
         "id": 12, "phase": "Embarque y Pago",
         "name": "Envío de facturas y lista de series",
         "description": "Recibir de Yamaha las facturas comerciales y listado de números de serie por motor.",
-        "responsible_key": "cmunoz",
+        "responsible_key": "cmuniz",
         "days_allocated": 7,
     },
     {
         "id": 13, "phase": "Embarque y Pago",
         "name": "Embarque",
         "description": "Confirmar el embarque de los motores en puerto de origen Japón.",
-        "responsible_key": "cmunoz",
+        "responsible_key": "cmuniz",
         "days_allocated": 1,
     },
     {
         "id": 14, "phase": "Embarque y Pago",
         "name": "Trayecto de contenedor en mar",
         "description": "Monitorear el trayecto marítimo del contenedor desde Japón hasta México.",
-        "responsible_key": "cmunoz",
+        "responsible_key": "cmuniz",
         "days_allocated": 30,
     },
     {
         "id": 15, "phase": "Embarque y Pago",
         "name": "Arribo a puerto",
         "description": "Confirmar arribo del contenedor al puerto mexicano y coordinar con agente aduanal.",
-        "responsible_key": "cmunoz",
+        "responsible_key": "cmuniz",
         "days_allocated": 2,
     },
     # Fase 6 — Aduana y Recepción
@@ -191,21 +191,21 @@ ACTIVITIES_TEMPLATE: list[dict] = [
         "id": 16, "phase": "Aduana y Recepción",
         "name": "Cruce en aduana y pago de gastos",
         "description": "Gestionar el despacho aduanal, pago de impuestos (IVA/IGI) y gastos de importación.",
-        "responsible_key": "cmunoz",
+        "responsible_key": "cmuniz",
         "days_allocated": 5,
     },
     {
         "id": 17, "phase": "Aduana y Recepción",
         "name": "Salida y monitoreo de embarque",
         "description": "Confirmar salida de aduana y monitorear el traslado terrestre hacia CEDIS.",
-        "responsible_key": "cmunoz",
+        "responsible_key": "cmuniz",
         "days_allocated": 1,
     },
     {
         "id": 18, "phase": "Aduana y Recepción",
         "name": "Arribo a CEDIS",
         "description": "Recibir el contenedor en el centro de distribución IMEMSA y programar descarga.",
-        "responsible_key": "cmunoz",
+        "responsible_key": "cmuniz",
         "days_allocated": 1,
     },
     {
