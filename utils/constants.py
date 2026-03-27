@@ -39,7 +39,7 @@ USERS: dict[str, dict] = {
         "password_hash": _h("Imemsa2026*"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
-        "email": "lteodocio@imemsa.com.mx",
+        "email": "jespinosa@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "JE",
         "color": "#059669",
@@ -57,13 +57,13 @@ USERS: dict[str, dict] = {
         "password_hash": _h("Imemsa2026*"),
         "name": "Claudia Muñoz",
         "role": "Líder Logística",
-        "email": "cmunoz@imemsa.com.mx",
+        "email": "cmuniz@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "CM",
         "color": "#DC2626",
     },
     # ── Nuevo usuario: Karla Merino (Tesorería) ──────────────────────────────
-    "kmerino": {
+    "ratlaco": {
         "password_hash": _h("Imemsa2026*"),
         "name": "Karla Merino",
         "role": "Tesorería",
