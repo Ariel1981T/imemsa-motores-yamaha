@@ -180,7 +180,6 @@ def create_order(
 
     data["orders"].append(order)
     data["last_order_seq"] = seq
-    save_data(data)
     return True, f"Pedido {order_number} creado exitosamente.", order
 
 
@@ -230,7 +229,6 @@ def request_closure(
     act["closure_requested_by"]   = requested_by
     act["closure_requested_at"]   = today_str()
     order["progress"]             = _calc_progress(order["activities"])
-    save_data(data)
     return True, "Solicitud de cierre enviada. La actividad se marcará como completada al 100 %."
 
 
@@ -278,7 +276,6 @@ def approve_closure(
         order["status"] = "completed"
 
     order["progress"] = _calc_progress(acts)
-    save_data(data)
     return True, "Actividad cerrada y siguiente actividad activada.", alerts
 
 
