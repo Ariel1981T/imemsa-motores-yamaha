@@ -594,7 +594,10 @@ def _send_overdue_alerts(data: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_dashboard() -> None:
-    data = load_data()
+    if st.session_state.get("_data_cache"):
+        data = st.session_state.pop("_data_cache")
+    else:
+        data = load_data()
     user = st.session_state["user"]
     orders = get_orders_for_user(data, user["username"])
 
@@ -618,7 +621,7 @@ def page_dashboard() -> None:
     c1, c2, c3, c4, c5 = st.columns(5)
     _kpi(c1, str(len(active)),          "Pedidos Activos",  "#0D2B6E")
     _kpi(c2, str(len(completed)),        "Completados",      "#059669")
-    _kpi(c3, str(annual_count), "Pedidos Acumulados", "#7C3AED")
+    _kpi(c3, str(annual_count), "Pedidos", "#7C3AED")
     _kpi(c4, str(sem["red"]),            "Actividades Venc.", "#C41E2E")
     _kpi(c5, str(sem["yellow"]),         "En Riesgo",        "#D97706")
 
@@ -732,7 +735,11 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
-    data  = load_data()
+    # Usar datos en caché de session_state para evitar condición de carrera con Sheets
+    if st.session_state.get("_data_cache"):
+        data = st.session_state.pop("_data_cache")
+    else:
+        data = load_data()
     user  = st.session_state["user"]
     order_id = st.session_state.get("selected_order_id")
 
@@ -895,6 +902,8 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                             for alert in alerts:
                                 send_activation_email(**alert)
                             st.success(f"✅ Actividad cerrada al 100 %. {msg2}")
+                            # Refrescar desde Sheets en el siguiente ciclo
+                            st.session_state.pop("_data_cache", None)
                             st.rerun()
                         else:
                             st.warning(msg2)
@@ -981,6 +990,8 @@ def page_new_order() -> None:
                     st.balloons()
                     st.session_state["selected_order_id"] = new_order["id"]
                     st.session_state["page"] = "activities"
+                    # Cachear datos para que page_activities los use sin releer Sheets
+                    st.session_state["_data_cache"] = data
                     st.rerun()
                 else:
                     st.error(msg)
