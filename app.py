@@ -412,7 +412,6 @@ def render_sidebar() -> str:
         ]
         if user.get("can_create_orders"):
             nav_items.append(("➕", "Nuevo Pedido", "new_order"))
-            nav_items.append(("🔀", "Reordenar Pedidos", "reordenar"))
 
         for icon, label, key in nav_items:
             active_style = "nav-active" if page == key else ""
@@ -845,63 +844,6 @@ def page_new_order() -> None:
                     st.error(msg)
 
 
-# ══════════════════════════════════════════════════════════
-#  PÁGINA ADMIN — REORDENAR PEDIDOS (temporal)
-# ══════════════════════════════════════════════════════════
-
-def page_reordenar() -> None:
-    st.markdown('<div class="section-header">🔀 Reordenar Pedidos por Fecha</div>',
-                unsafe_allow_html=True)
-
-    data   = _app_data()
-    orders = [o for o in data["orders"] if o.get("status") != "cancelled"]
-
-    # Mostrar orden actual
-    st.markdown("**Orden actual:**")
-    for o in orders:
-        st.markdown(
-            f'`{o["order_number"]}` &nbsp;·&nbsp; Creado: `{o["created_at"]}`',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Calcular nuevo orden
-    sorted_orders = sorted(orders, key=lambda o: o.get("created_at", ""))
-    st.markdown("**Nuevo orden (por fecha):**")
-    for i, o in enumerate(sorted_orders, 1):
-        year = o.get("created_at", "2026")[:4]
-        new_num = f"IMEMSA-YAM-{year}-{i:03d}"
-        st.markdown(
-            f'`{new_num}` &nbsp;·&nbsp; Creado: `{o["created_at"]}` '
-            f'&nbsp;←&nbsp; antes era `{o["order_number"]}`',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.warning("⚠️ Esta acción renumerará todos los pedidos. Los datos y estatus se conservan intactos.")
-
-    if st.button("✅  Confirmar reordenamiento", type="primary"):
-        # Aplicar reordenamiento
-        sorted_orders = sorted(
-            [o for o in data["orders"] if o.get("status") != "cancelled"],
-            key=lambda o: o.get("created_at", "")
-        )
-        cancelled = [o for o in data["orders"] if o.get("status") == "cancelled"]
-
-        for i, o in enumerate(sorted_orders, 1):
-            year    = o.get("created_at", "2026")[:4]
-            o["id"]           = i
-            o["order_number"] = f"IMEMSA-YAM-{year}-{i:03d}"
-            o["year"]         = int(year)
-
-        data["orders"]        = sorted_orders + cancelled
-        data["last_order_seq"] = len(sorted_orders)
-
-        _app_save(data)
-        st.success("🎉 Pedidos reordenados correctamente. Ya puedes eliminar esta opción del menú.")
-        st.rerun()
-
 
 # ══════════════════════════════════════════════════════════
 #  MAIN ROUTER
@@ -929,8 +871,6 @@ def main() -> None:
         page_activities()
     elif page == "new_order":
         page_new_order()
-    elif page == "reordenar":
-        page_reordenar()
     else:
         page_dashboard()
 
