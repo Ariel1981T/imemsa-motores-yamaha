@@ -39,7 +39,7 @@ USERS: dict[str, dict] = {
         "password_hash": _h("Imemsa2026*"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
-        "email": "lteodocio@imemsa.com.mx",
+        "email": "jespinoza@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "JE",
         "color": "#059669",
