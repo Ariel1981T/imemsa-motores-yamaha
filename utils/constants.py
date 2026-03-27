@@ -50,7 +50,7 @@ USERS: dict[str, dict] = {
         "role": "Líder Tesorería",
         "email": "kmerino@imemsa.com.mx",
         "can_create_orders": False,
-        "avatar": "CC",
+        "avatar": "KM",
         "color": "#D97706",
     },
     "cmuniz": {
@@ -69,7 +69,7 @@ USERS: dict[str, dict] = {
         "role": "Director de Finanzas",
         "email": "ratlaco@imemsa.com.mx",
         "can_create_orders": False,
-        "avatar": "KM",
+        "avatar": "RA",
         "color": "#0891B2",
     },
 }
