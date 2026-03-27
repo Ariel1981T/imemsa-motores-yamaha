@@ -18,7 +18,7 @@ def _h(pw: str) -> str:
 
 USERS: dict[str, dict] = {
     "dgonzalez": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "David González",
         "role": "Supervisor",
         "email": "dgonzalez@imemsa.com.mx",
@@ -26,17 +26,17 @@ USERS: dict[str, dict] = {
         "avatar": "DG",
         "color": "#2563EB",
     },
-    "fgarduno": {
-        "password_hash": _h("Imemsa2024*"),
+    "mgarduno": {
+        "password_hash": _h("Imemsa2026*"),
         "name": "Flor Garduño",
         "role": "Responsable de Proceso",
-        "email": "fgarduno@imemsa.com.mx",
+        "email": "mgarduno@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "FG",
         "color": "#7C3AED",
     },
     "jespinoza": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
         "email": "jespinoza@imemsa.com.mx",
@@ -44,17 +44,17 @@ USERS: dict[str, dict] = {
         "avatar": "JE",
         "color": "#059669",
     },
-    "ccastaneda": {
-        "password_hash": _h("Imemsa2024*"),
+    "kmerino": {
+        "password_hash": _h("Imemsa2026*"),
         "name": "Carmen Castañeda",
         "role": "Líder Tesorería",
-        "email": "ccastaneda@imemsa.com.mx",
+        "email": "kmerino@imemsa.com.mx",
         "can_create_orders": False,
         "avatar": "CC",
         "color": "#D97706",
     },
     "cmunoz": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "Claudia Muñoz",
         "role": "Líder Logística",
         "email": "cmunoz@imemsa.com.mx",
@@ -64,7 +64,7 @@ USERS: dict[str, dict] = {
     },
     # ── Nuevo usuario: Karla Merino (Tesorería) ──────────────────────────────
     "kmerino": {
-        "password_hash": _h("Imemsa2024*"),
+        "password_hash": _h("Imemsa2026*"),
         "name": "Karla Merino",
         "role": "Tesorería",
         "email": "kmerino@imemsa.com.mx",
