@@ -54,7 +54,7 @@ def _get_worksheet():
         ws = sh.worksheet("orders_data")
     except Exception:
         ws = sh.add_worksheet(title="orders_data", rows=10, cols=2)
-        ws.update("A1", json.dumps({"orders": [], "last_order_seq": 0}))
+        ws.update(range_name="A1", values=[[json.dumps({"orders": [], "last_order_seq": 0})]])
     return ws
 
 
@@ -77,7 +77,7 @@ def save_to_sheets(data: dict) -> bool:
     """Escribe el JSON completo en la celda A1 de Google Sheets."""
     try:
         ws = _get_worksheet()
-        ws.update("A1", [[json.dumps(data, ensure_ascii=False)]])
+        ws.update(range_name="A1", values=[[json.dumps(data, ensure_ascii=False)]])
         return True
     except Exception as e:
         print(f"[SHEETS WRITE ERROR] {e}")
