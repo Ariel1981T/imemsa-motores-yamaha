@@ -73,11 +73,28 @@ def load_from_sheets() -> dict:
         return {"orders": [], "last_order_seq": 0}
 
 
+def _strip_evidence(data: dict) -> dict:
+    """
+    Elimina el contenido binario (base64) de las evidencias antes de guardar en Sheets.
+    Solo conserva el nombre del archivo — el contenido no es necesario para el seguimiento.
+    """
+    import copy
+    clean = copy.deepcopy(data)
+    for order in clean.get("orders", []):
+        for act in order.get("activities", []):
+            if act.get("evidence_data"):
+                act["evidence_data"] = None  # eliminar binario, conservar nombre
+    return clean
+
+
 def save_to_sheets(data: dict) -> bool:
-    """Escribe el JSON completo en la celda A1 de Google Sheets."""
+    """Escribe el JSON en la celda A1 de Google Sheets (sin binarios de evidencia)."""
     try:
-        ws = _get_worksheet()
-        ws.update(range_name="A1", values=[[json.dumps(data, ensure_ascii=False)]])
+        ws       = _get_worksheet()
+        clean    = _strip_evidence(data)
+        payload  = json.dumps(clean, ensure_ascii=False)
+        ws.update(range_name="A1", values=[[payload]])
+        print(f"[SHEETS WRITE OK] {len(payload)} chars")
         return True
     except Exception as e:
         print(f"[SHEETS WRITE ERROR] {e}")
