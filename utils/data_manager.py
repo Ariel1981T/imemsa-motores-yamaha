@@ -96,23 +96,24 @@ def _local_write(data: dict) -> None:
 def load_data() -> dict:
     """Carga datos: Google Sheets si disponible, sino JSON local."""
     try:
-        from utils.sheets_manager import USE_SHEETS, load_from_sheets
-        if USE_SHEETS:
+        from utils.sheets_manager import _gsheets_available, load_from_sheets
+        if _gsheets_available():
             return load_from_sheets()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[LOAD_DATA fallback] {e}")
     return _local_load()
 
 
 def save_data(data: dict) -> None:
     """Guarda datos: Google Sheets si disponible, sino JSON local."""
     try:
-        from utils.sheets_manager import USE_SHEETS, save_to_sheets
-        if USE_SHEETS:
-            save_to_sheets(data)
-            return
-    except Exception:
-        pass
+        from utils.sheets_manager import _gsheets_available, save_to_sheets
+        if _gsheets_available():
+            ok = save_to_sheets(data)
+            if ok:
+                return
+    except Exception as e:
+        print(f"[SAVE_DATA fallback] {e}")
     _local_write(data)
 
 
