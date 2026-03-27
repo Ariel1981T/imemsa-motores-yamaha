@@ -791,9 +791,7 @@ def page_new_order() -> None:
         f'<div style="background:#fff;border-radius:10px;padding:16px 20px;'
         f'margin-bottom:20px;box-shadow:0 1px 4px rgba(13,43,110,.08);'
         f'border-left:4px solid {color_bar};">'
-        f'<span style="font-weight:700;color:{color_bar};">'
-        f'Capacidad anual {year}: {count}/{MAX_ANNUAL_ORDERS} pedidos registrados</span>'
-        f'  · <span style="color:#6B7280;">Disponibles: {remaining}</span>'
+        f'<span style="font-weight:700;color:{color_bar};">Pedidos {year}: {count}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -805,13 +803,15 @@ def page_new_order() -> None:
     with st.form("new_order_form"):
         col1, col2 = st.columns(2)
         with col1:
-            motor_model = st.text_input("Nombre del pedido",
-                                        placeholder="Ej. Compra Motores 40HP — Temporada 2026")
-            quantity    = st.number_input("Cantidad de motores", min_value=1, value=1, step=1)
+            motor_model  = st.text_input("Nombre del pedido",
+                                         placeholder="Ej. Compra Motores 40HP — Temporada 2026")
+            quantity     = st.number_input("Cantidad de motores", min_value=1, value=1, step=1)
         with col2:
-            supplier    = st.text_input("Monto aproximado de O.C.",
-                                        placeholder="Ej. $250,000 MXN")
-            _           = st.empty()
+            supplier     = st.text_input("Monto aproximado de O.C.",
+                                         placeholder="Ej. $250,000 MXN")
+            order_date   = st.date_input("Fecha de Pedido",
+                                         value=datetime.today(),
+                                         help="Puedes seleccionar una fecha anterior para registrar pedidos ya realizados.")
 
         notes = st.text_area("Justificación / Notas adicionales", height=100,
                              placeholder="Descripción del requerimiento, destino, prioridad…")
@@ -830,7 +830,9 @@ def page_new_order() -> None:
             else:
                 ok, msg, new_order = create_order(
                     data, motor_model, int(quantity),
-                    supplier.strip(), notes, user["username"], year,
+                    supplier.strip(), notes, user["username"],
+                    order_date.year,
+                    order_date.strftime("%Y-%m-%d"),
                 )
                 if ok:
                     st.success(f"🎉 {msg}")
