@@ -485,10 +485,7 @@ def page_dashboard() -> None:
     completed    = [o for o in orders if o["status"] == "completed"]
     sem          = get_semaphore_summary(data)
     year         = datetime.today().year
-    annual_count = len([o for o in data["orders"]
-                        if o.get("status") != "cancelled"
-                        and (o.get("year") == year
-                             or (o.get("created_at","").startswith(str(year))))])
+    annual_count = len(orders)  # todos los pedidos activos + completados (no cancelados)
 
     st.markdown(
         f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
