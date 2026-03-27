@@ -30,6 +30,30 @@ from utils.data_manager import (load_data, save_data, create_order,
                                 get_my_pending_activities)
 from utils.email_utils  import send_activation_email, send_overdue_alert
 
+
+# ══════════════════════════════════════════════════════════
+#  CAPA DE DATOS EN MEMORIA (evita condición de carrera con Sheets)
+#  _app_data()     → siempre usa session_state; solo lee Sheets la primera vez
+#  _app_save(data) → actualiza session_state Y persiste en Sheets
+# ══════════════════════════════════════════════════════════
+
+def _app_data() -> dict:
+    """Regresa los datos desde session_state. Lee Sheets solo si no hay caché."""
+    if "_app_data_store" not in st.session_state:
+        st.session_state["_app_data_store"] = load_data()
+    return st.session_state["_app_data_store"]
+
+
+def _app_save(data: dict) -> None:
+    """Guarda en session_state (inmediato) y en Sheets (asíncrono/eventual)."""
+    st.session_state["_app_data_store"] = data
+    save_data(data)
+
+
+def _app_invalidate() -> None:
+    """Fuerza releer Sheets en el siguiente ciclo (usar tras logout)."""
+    st.session_state.pop("_app_data_store", None)
+
 # ══════════════════════════════════════════════════════════
 #  CSS Global
 # ══════════════════════════════════════════════════════════
@@ -538,7 +562,7 @@ def render_sidebar() -> str:
         st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
 
         # Semáforo resumen
-        data = load_data()
+        data = _app_data()
         sem = get_semaphore_summary(data)
         st.markdown(
             '<p style="font-size:.7rem;font-weight:700;text-transform:uppercase;'
@@ -558,11 +582,12 @@ def render_sidebar() -> str:
         if sem["red"] > 0:
             st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
             if st.button("🚨  Enviar alertas vencidas", use_container_width=True):
-                _send_overdue_alerts(data)
+                _send_overdue_alerts(_app_data())
 
         st.markdown('<div class="sidebar-divider" style="margin-top:auto;"></div>', unsafe_allow_html=True)
 
         if st.button("🚪  Cerrar sesión", use_container_width=True):
+            _app_invalidate()
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
@@ -594,10 +619,7 @@ def _send_overdue_alerts(data: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_dashboard() -> None:
-    if st.session_state.get("_data_cache"):
-        data = st.session_state.pop("_data_cache")
-    else:
-        data = load_data()
+    data = _app_data()
     user = st.session_state["user"]
     orders = get_orders_for_user(data, user["username"])
 
@@ -735,11 +757,7 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
-    # Usar datos en caché de session_state para evitar condición de carrera con Sheets
-    if st.session_state.get("_data_cache"):
-        data = st.session_state.pop("_data_cache")
-    else:
-        data = load_data()
+    data = _app_data()
     user  = st.session_state["user"]
     order_id = st.session_state.get("selected_order_id")
 
@@ -902,8 +920,8 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                             for alert in alerts:
                                 send_activation_email(**alert)
                             st.success(f"✅ Actividad cerrada al 100 %. {msg2}")
-                            # Refrescar desde Sheets en el siguiente ciclo
-                            st.session_state.pop("_data_cache", None)
+                            # data ya fue modificado in-place por approve_closure
+                            _app_save(data)
                             st.rerun()
                         else:
                             st.warning(msg2)
@@ -929,7 +947,7 @@ def page_new_order() -> None:
         st.error("⛔ Acceso restringido. Solo David González puede crear nuevos pedidos.")
         return
 
-    data  = load_data()
+    data  = _app_data()
     year  = datetime.today().year
     count = len([o for o in data["orders"]
                  if o.get("year") == year and o.get("status") != "cancelled"])
@@ -988,10 +1006,10 @@ def page_new_order() -> None:
                 if ok:
                     st.success(f"🎉 {msg}")
                     st.balloons()
+                    # Actualizar session_state con datos frescos (incluye el nuevo pedido)
+                    _app_save(data)
                     st.session_state["selected_order_id"] = new_order["id"]
                     st.session_state["page"] = "activities"
-                    # Cachear datos para que page_activities los use sin releer Sheets
-                    st.session_state["_data_cache"] = data
                     st.rerun()
                 else:
                     st.error(msg)
