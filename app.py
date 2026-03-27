@@ -549,7 +549,6 @@ def render_sidebar() -> str:
         ]
         if user.get("can_create_orders"):
             nav_items.append(("➕", "Nuevo Pedido", "new_order"))
-            nav_items.append(("🔧", "Diagnóstico Sheets", "diagnostico"))
 
         for icon, label, key in nav_items:
             active_style = "nav-active" if page == key else ""
@@ -1016,100 +1015,6 @@ def page_new_order() -> None:
                     st.error(msg)
 
 
-# ══════════════════════════════════════════════════════════
-#  PÁGINA DIAGNÓSTICO GOOGLE SHEETS
-# ══════════════════════════════════════════════════════════
-
-def page_diagnostico() -> None:
-    st.markdown('<div class="section-header">🔧 Diagnóstico Google Sheets</div>',
-                unsafe_allow_html=True)
-
-    # ── Test 1: secrets disponibles ───────────────────────────────────────────
-    st.markdown("### 1. Secrets de Streamlit")
-    try:
-        gcp = st.secrets["gcp_service_account"]
-        email = gcp["client_email"]
-        st.success(f"✅ Secret `gcp_service_account` encontrado — client_email: `{email}`")
-    except Exception as e:
-        st.error(f"❌ Error leyendo `gcp_service_account`: {e}")
-
-    try:
-        sid = st.secrets["gsheets"]["spreadsheet_id"]
-        st.success(f"✅ Secret `gsheets.spreadsheet_id` encontrado: `{sid}`")
-    except Exception as e:
-        st.error(f"❌ Error leyendo `gsheets.spreadsheet_id`: {e}")
-
-    # ── Test 2: gspread importable ────────────────────────────────────────────
-    st.markdown("### 2. Librería gspread")
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        st.success(f"✅ gspread versión: {gspread.__version__}")
-    except Exception as e:
-        st.error(f"❌ Error importando gspread: {e}")
-
-    # ── Test 3: detección dinámica ────────────────────────────────────────────
-    st.markdown("### 3. Detección dinámica")
-    try:
-        from utils.sheets_manager import _gsheets_available
-        disponible = _gsheets_available()
-        if disponible:
-            st.success("✅ `_gsheets_available()` → True — Sheets habilitado")
-        else:
-            st.error("❌ `_gsheets_available()` → False — revisión necesaria")
-    except Exception as e:
-        st.error(f"❌ Error en `_gsheets_available()`: {e}")
-
-    # ── Test 4: autenticación ─────────────────────────────────────────────────
-    st.markdown("### 4. Autenticación con Google")
-    try:
-        from utils.sheets_manager import _get_client
-        client = _get_client()
-        st.success("✅ Autenticación exitosa con Google API")
-    except Exception as e:
-        st.error(f"❌ Error de autenticación: {e}")
-        st.stop()
-
-    # ── Test 5: abrir spreadsheet ─────────────────────────────────────────────
-    st.markdown("### 5. Acceso al Spreadsheet")
-    try:
-        from utils.sheets_manager import _get_worksheet
-        ws = _get_worksheet()
-        st.success(f"✅ Hoja `orders_data` abierta correctamente")
-    except Exception as e:
-        st.error(f"❌ Error abriendo el spreadsheet: {e}")
-        st.stop()
-
-    # ── Test 6: lectura de A1 ─────────────────────────────────────────────────
-    st.markdown("### 6. Leer celda A1")
-    try:
-        from utils.sheets_manager import _get_worksheet
-        ws = _get_worksheet()
-        val = ws.acell("A1").value
-        if val:
-            st.success(f"✅ A1 contiene datos ({len(val)} caracteres)")
-            st.code(val[:200] + "..." if len(val) > 200 else val, language="json")
-        else:
-            st.warning("⚠️ A1 está vacía")
-    except Exception as e:
-        st.error(f"❌ Error leyendo A1: {e}")
-
-    # ── Test 7: escritura de prueba ───────────────────────────────────────────
-    st.markdown("### 7. Escritura de prueba")
-    if st.button("✏️  Escribir dato de prueba en A1", type="primary"):
-        try:
-            from utils.sheets_manager import save_to_sheets
-            import json
-            data_prueba = {"orders": [], "last_order_seq": 0, "_test": "OK desde Streamlit"}
-            ok = save_to_sheets(data_prueba)
-            if ok:
-                st.success("✅ Escritura exitosa — verifica la celda A1 en tu Google Sheet")
-                st.balloons()
-            else:
-                st.error("❌ save_to_sheets() regresó False (revisa logs)")
-        except Exception as e:
-            st.error(f"❌ Error escribiendo en A1: {e}")
-
 
 # ══════════════════════════════════════════════════════════
 #  MAIN ROUTER
@@ -1141,8 +1046,6 @@ def main() -> None:
         page_activities()
     elif page == "new_order":
         page_new_order()
-    elif page == "diagnostico":
-        page_diagnostico()
     else:
         page_dashboard()
 
