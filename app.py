@@ -264,6 +264,19 @@ def inject_css() -> None:
         background: #C41E2E !important;
     }
     .stAlert { border-radius: 8px !important; }
+
+    /* ── Expander solicitar cierre ─────────────────── */
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary span,
+    [data-testid="stExpander"] details summary p {
+        color: #0D2B6E !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stExpander"] {
+        background: #EEF2FF !important;
+        border: 1.5px solid #C7D2FE !important;
+        border-radius: 8px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -605,7 +618,7 @@ def page_dashboard() -> None:
     c1, c2, c3, c4, c5 = st.columns(5)
     _kpi(c1, str(len(active)),          "Pedidos Activos",  "#0D2B6E")
     _kpi(c2, str(len(completed)),        "Completados",      "#059669")
-    _kpi(c3, str(annual_count), "Pedidos Acumulados", "#7C3AED")
+    _kpi(c3, str(annual_count), "Pedidos", "#7C3AED")
     _kpi(c4, str(sem["red"]),            "Actividades Venc.", "#C41E2E")
     _kpi(c5, str(sem["yellow"]),         "En Riesgo",        "#D97706")
 
