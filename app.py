@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 import base64
+import io
 import os
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 import streamlit as st
 
@@ -314,6 +315,147 @@ def _act_row_class(status: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════
+#  HELPERS — MEJORAS v2.1
+# ══════════════════════════════════════════════════════════
+
+def _working_days_remaining(due_date_str: str) -> int | None:
+    """Días hábiles (lun-vie) entre hoy y la fecha límite. Negativo = vencida."""
+    if not due_date_str:
+        return None
+    try:
+        due   = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+        today = date.today()
+        if due == today:
+            return 0
+        step, days, current = (1, 0, today) if due > today else (-1, 0, today)
+        while current != due:
+            current += timedelta(days=step)
+            if current.weekday() < 5:
+                days += step
+        return days
+    except Exception:
+        return None
+
+
+def _days_badge(days: int | None) -> str:
+    if days is None:
+        return ""
+    if days > 2:
+        color, bg, txt = "#065F46", "#D1FAE5", f"⏱ {days}d restantes"
+    elif days >= 0:
+        color, bg, txt = "#92400E", "#FEF3C7", f"⚠️ {days}d restantes"
+    else:
+        color, bg, txt = "#991B1B", "#FEE2E2", f"🔴 {abs(days)}d vencida"
+    return (f' <span style="font-size:.68rem;font-weight:700;padding:2px 8px;'
+            f'border-radius:12px;background:{bg};color:{color};">{txt}</span>')
+
+
+def _log_history(act: dict, username: str, action: str, detail: str = "") -> None:
+    """Agrega entrada al historial de una actividad (se guarda con _app_save)."""
+    if "history" not in act:
+        act["history"] = []
+    act["history"].append({
+        "ts":     datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "user":   USERS.get(username, {}).get("name", username),
+        "action": action,
+        "detail": detail,
+    })
+
+
+def _export_order_excel(order: dict) -> bytes:
+    """Genera Excel con el detalle de actividades del pedido."""
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        wb  = openpyxl.Workbook()
+        ws  = wb.active
+        ws.title = "Actividades"
+        navy, red_c, white = "0D2B6E", "C41E2E", "FFFFFF"
+        # Fila 1 — título
+        ws.merge_cells("A1:H1")
+        c = ws["A1"]
+        c.value     = f"IMEMSA  ·  {order['order_number']}  —  {order['motor_model']}"
+        c.font      = Font(bold=True, color=white, size=13)
+        c.fill      = PatternFill("solid", fgColor=navy)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[1].height = 28
+        # Fila 2 — resumen
+        ws.merge_cells("A2:H2")
+        c = ws["A2"]
+        c.value     = (f"Cantidad: {order['quantity']} u.  ·  Monto/OC: {order['supplier']}"
+                       f"  ·  Creado: {order['created_at']}  ·  Avance: {order.get('progress',0)}%")
+        c.font      = Font(size=10, color="555555")
+        c.alignment = Alignment(horizontal="center")
+        ws.row_dimensions[2].height = 16
+        # Fila 3 — encabezados columnas
+        headers = ["#", "Fase", "Actividad", "Responsable", "Estado",
+                   "Inicio", "Límite", "Cierre"]
+        for col, h in enumerate(headers, 1):
+            c = ws.cell(row=3, column=col, value=h)
+            c.font      = Font(bold=True, color=white, size=10)
+            c.fill      = PatternFill("solid", fgColor=red_c)
+            c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.row_dimensions[3].height = 20
+        status_map = {"completed": "Completada", "in_progress": "En curso",
+                      "waiting_closure": "Esp. cierre", "pending": "Pendiente",
+                      "blocked": "Bloqueada"}
+        fills = {"completed": "F0FDF4", "in_progress": "EFF6FF",
+                 "waiting_closure": "FFFBEB", "blocked": "FEF2F2"}
+        for i, act in enumerate(order.get("activities", []), 4):
+            resp = USERS.get(act.get("responsible_key", ""), {})
+            st_  = act.get("status", "pending")
+            row  = [act.get("id",""), act.get("phase",""), act.get("name",""),
+                    resp.get("name",""), status_map.get(st_, st_),
+                    act.get("start_date",""), act.get("due_date",""),
+                    act.get("completion_date","")]
+            bg = fills.get(st_, "FFFFFF")
+            for col, val in enumerate(row, 1):
+                c = ws.cell(row=i, column=col, value=val)
+                c.fill      = PatternFill("solid", fgColor=bg)
+                c.alignment = Alignment(vertical="center", wrap_text=True)
+            ws.row_dimensions[i].height = 18
+        for col, w in zip("ABCDEFGH", [5, 24, 38, 22, 14, 13, 13, 13]):
+            ws.column_dimensions[col].width = w
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
+    except Exception:
+        return b""
+
+
+# ══════════════════════════════════════════════════════════
+#  ALERTA AUTOMÁTICA DIARIA (8:00 am)
+# ══════════════════════════════════════════════════════════
+
+def _check_daily_alerts() -> None:
+    """Se ejecuta una vez por día al detectar la primera sesión activa a partir de las 8am."""
+    now       = datetime.now()
+    today_str = now.strftime("%Y-%m-%d")
+    last      = st.session_state.get("_last_alert_check", "")
+    if now.hour >= 8 and last != today_str:
+        st.session_state["_last_alert_check"] = today_str
+        data = _app_data()
+        reds = get_red_activities(data)
+        if reds:
+            sent = 0
+            for act in reds:
+                ok = send_overdue_alert(
+                    to_email=act["_responsible_email"],
+                    to_name=act["_responsible_name"],
+                    order_number=act["_order_number"],
+                    activity_name=act["name"],
+                    due_date=act.get("due_date", "—"),
+                )
+                if ok:
+                    sent += 1
+            if sent > 0:
+                st.toast(
+                    f"🔔 Alerta automática 8am: {sent} actividad(es) vencida(s) notificadas.",
+                    icon="📧",
+                )
+
+
+# ══════════════════════════════════════════════════════════
 #  PÁGINA 1 — LOGIN
 # ══════════════════════════════════════════════════════════
 
@@ -613,7 +755,7 @@ def page_dashboard() -> None:
     _kpi(c1, str(len(active)),    "Pedidos Activos",   "#0D2B6E")
     _kpi(c2, str(len(completed)), "Completados",        "#059669")
     _kpi(c3, str(annual_count),   f"Pedidos {year}",   "#7C3AED")
-    _kpi(c4, str(sem["red"]),     "Actividades Vencidas",  "#C41E2E")
+    _kpi(c4, str(sem["red"]),     "Actividades Venc.",  "#C41E2E")
     _kpi(c5, str(sem["yellow"]),  "En Riesgo",          "#D97706")
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -645,18 +787,50 @@ def page_dashboard() -> None:
             )
         st.markdown("<br>", unsafe_allow_html=True)
 
-    tabs = st.tabs([f"🔄  Activos  ({len(active)})", f"✅  Completados  ({len(completed)})"])
+    # ── FILTROS ──────────────────────────────────────────────
+    st.markdown('<div class="section-header" style="font-size:1.1rem;">🔍 Filtros</div>',
+                unsafe_allow_html=True)
+    resp_names = sorted({
+        USERS[a.get("responsible_key","")]["name"]
+        for o in orders
+        for a in o.get("activities", [])
+        if a.get("responsible_key","") in USERS
+    })
+    col_f1, col_f2, _ = st.columns([1, 1, 2])
+    with col_f1:
+        filter_resp = st.selectbox("Responsable", ["Todos"] + resp_names, key="f_resp")
+    with col_f2:
+        filter_sem  = st.selectbox("Semáforo activo", ["Todos", "🟢 En tiempo", "🟡 En riesgo", "🔴 Vencida"], key="f_sem")
+    sem_map = {"🟢 En tiempo": "green", "🟡 En riesgo": "yellow", "🔴 Vencida": "red"}
+
+    def _pass_filters(order: dict) -> bool:
+        acts = order.get("activities", [])
+        active_act = next((a for a in acts if a["status"] in ("in_progress","waiting_closure")), None)
+        if filter_resp != "Todos":
+            resp_key = next((k for k,v in USERS.items() if v["name"] == filter_resp), None)
+            if not any(a.get("responsible_key") == resp_key for a in acts
+                       if a["status"] in ("in_progress","waiting_closure")):
+                return False
+        if filter_sem != "Todos" and active_act:
+            if get_semaphore(active_act) != sem_map.get(filter_sem, ""):
+                return False
+        return True
+
+    active_f    = [o for o in active    if _pass_filters(o)]
+    completed_f = [o for o in completed if _pass_filters(o)]
+
+    tabs = st.tabs([f"🔄  Activos  ({len(active_f)})", f"✅  Completados  ({len(completed_f)})"])
     with tabs[0]:
-        if not active:
-            st.info("No hay pedidos activos actualmente.")
+        if not active_f:
+            st.info("No hay pedidos activos con los filtros seleccionados.")
         else:
-            for order in sorted(active, key=lambda o: o["id"], reverse=True):
+            for order in sorted(active_f, key=lambda o: o["id"], reverse=True):
                 _render_order_card(order)
     with tabs[1]:
-        if not completed:
-            st.info("No hay pedidos completados.")
+        if not completed_f:
+            st.info("No hay pedidos completados con los filtros seleccionados.")
         else:
-            for order in sorted(completed, key=lambda o: o["id"], reverse=True):
+            for order in sorted(completed_f, key=lambda o: o["id"], reverse=True):
                 _render_order_card(order)
 
 
@@ -779,6 +953,19 @@ def page_activities() -> None:
         unsafe_allow_html=True,
     )
 
+    # ── EXPORTAR ─────────────────────────────────────────────
+    col_exp, _ = st.columns([1, 4])
+    with col_exp:
+        excel_bytes = _export_order_excel(order)
+        if excel_bytes:
+            st.download_button(
+                label="⬇️  Exportar a Excel",
+                data=excel_bytes,
+                file_name=f"{order['order_number'].replace('/','-')}_actividades.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+
     st.markdown('<div class="section-header">🔢 Actividades del Proceso (19)</div>',
                 unsafe_allow_html=True)
 
@@ -808,6 +995,9 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
     responsible     = USERS.get(responsible_key, {})
     is_mine         = (responsible_key == user["username"])
 
+    days_left  = _working_days_remaining(act.get("due_date","")) if act.get("due_date") else None
+    days_html  = _days_badge(days_left) if status in ("in_progress","waiting_closure") else ""
+
     st.markdown(
         f'<div class="act-row {row_cls}">'
         f'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;">'
@@ -830,6 +1020,7 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
         f'  Plazo: {act["days_allocated"]} días hábiles'
         f'  {"  ·  Inicio: " + act["start_date"] if act.get("start_date") else ""}'
         f'  {"  ·  Límite: " + act["due_date"] if act.get("due_date") else ""}'
+        f'  {days_html}'
         f'  {"  ·  Cierre: " + act["completion_date"] if act.get("completion_date") else ""}'
         f'</div>'
         + (f'<div style="margin-top:4px;font-size:.75rem;color:#6B7280;">📎 Evidencia: {act["evidence_name"]}</div>'
@@ -861,6 +1052,15 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                     if ok:
                         ok2, msg2, alerts = approve_closure(data, order["id"], act["id"])
                         if ok2:
+                            # Registrar en historial
+                            for o in data["orders"]:
+                                if o["id"] == order["id"]:
+                                    for a in o.get("activities", []):
+                                        if a["id"] == act["id"]:
+                                            _log_history(a, user["username"],
+                                                         "Actividad cerrada",
+                                                         notes or "Sin notas")
+                                            break
                             for alert in alerts:
                                 send_activation_email(**alert)
                             st.success(f"✅ Actividad cerrada al 100 %. {msg2}")
@@ -878,6 +1078,61 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
             'margin-top:4px;">⏳ Cierre solicitado — procesando…</div>',
             unsafe_allow_html=True,
         )
+
+    # ── HISTORIAL DE CAMBIOS ─────────────────────────────
+    history = act.get("history", [])
+    if history:
+        with st.expander(f"🕐  Historial  ({len(history)} entrada(s))", expanded=False):
+            for entry in reversed(history):
+                st.markdown(
+                    f'<div style="padding:6px 10px;border-left:3px solid #0D2B6E;'
+                    f'margin-bottom:6px;background:#F8FAFF;border-radius:0 6px 6px 0;">'
+                    f'<span style="font-size:.72rem;color:#6B7280;">{entry["ts"]}</span>  '
+                    f'<strong style="font-size:.80rem;color:#0D2B6E;">{entry["user"]}</strong>  '
+                    f'<span style="font-size:.80rem;color:#374151;">— {entry["action"]}</span>'
+                    + (f'<br><span style="font-size:.75rem;color:#6B7280;margin-left:4px;">{entry["detail"]}</span>'
+                       if entry.get("detail") else "")
+                    + '</div>',
+                    unsafe_allow_html=True,
+                )
+
+    # ── COMENTARIOS ─────────────────────────────────────
+    comments = act.get("comments", [])
+    exp_label = f"💬  Comentarios  ({len(comments)})" if comments else "💬  Agregar comentario"
+    with st.expander(exp_label, expanded=False):
+        for cm in comments:
+            st.markdown(
+                f'<div style="padding:6px 10px;border-left:3px solid #C41E2E;'
+                f'margin-bottom:6px;background:#FFF8F8;border-radius:0 6px 6px 0;">'
+                f'<span style="font-size:.72rem;color:#6B7280;">{cm["ts"]}</span>  '
+                f'<strong style="font-size:.80rem;color:#C41E2E;">{cm["user"]}</strong><br>'
+                f'<span style="font-size:.82rem;color:#374151;">{cm["text"]}</span></div>',
+                unsafe_allow_html=True,
+            )
+        with st.form(f"comment_form_{order['id']}_{act['id']}"):
+            new_comment = st.text_area("Nuevo comentario", height=70, label_visibility="collapsed",
+                                       placeholder="Escribe un comentario sobre esta actividad…")
+            if st.form_submit_button("➕  Agregar comentario", use_container_width=True):
+                if new_comment.strip():
+                    # Agregar en data y guardar
+                    for o in data["orders"]:
+                        if o["id"] == order["id"]:
+                            for a in o.get("activities", []):
+                                if a["id"] == act["id"]:
+                                    if "comments" not in a:
+                                        a["comments"] = []
+                                    a["comments"].append({
+                                        "ts":   datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                        "user": USERS.get(user["username"], {}).get("name", user["username"]),
+                                        "text": new_comment.strip(),
+                                    })
+                                    _log_history(a, user["username"], "Comentario agregado",
+                                                 new_comment.strip()[:80])
+                                    break
+                    _app_save(data)
+                    st.rerun()
+                else:
+                    st.warning("El comentario no puede estar vacío.")
 
 
 # ══════════════════════════════════════════════════════════
@@ -976,6 +1231,8 @@ def main() -> None:
     if st.session_state["user"] is None:
         page_login()
         return
+
+    _check_daily_alerts()
 
     page = render_sidebar()
 
