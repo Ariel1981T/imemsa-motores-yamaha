@@ -66,165 +66,302 @@ def _app_invalidate() -> None:
 def inject_css() -> None:
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Source+Sans+3:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap');
 
+    /* ── FONDO MARINO (todas las páginas) ── */
     html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Source Sans 3', sans-serif; background: #F0F3F9;
+        font-family: 'Rajdhani', sans-serif;
+        background: radial-gradient(ellipse 120% 80% at 50% -10%,
+            #1a3a8f 0%, #0a1d5e 30%, #020b22 68%) !important;
+        min-height: 100vh;
     }
-    h1,h2,h3,h4 { font-family: 'Barlow Condensed', sans-serif; letter-spacing:.5px; }
+    #MainMenu, footer, header { visibility: hidden; }
 
+    /* Scanlines */
+    [data-testid="stAppViewContainer"]::before {
+        content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background: repeating-linear-gradient(
+            0deg, transparent, transparent 3px,
+            rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
+    }
+
+    /* Burbujas (todas las páginas) */
+    @keyframes rise-bubble {
+        0%   { transform: translateY(0);      opacity: 0.55; }
+        80%  { opacity: 0.1; }
+        100% { transform: translateY(-105vh); opacity: 0; }
+    }
+    .bbl {
+        position: fixed; border-radius: 50%;
+        background: rgba(180,210,255,0.18); border: 1px solid rgba(180,210,255,0.28);
+        animation: rise-bubble linear infinite;
+        pointer-events: none; z-index: 1; bottom: -20px;
+    }
+
+    /* Esquinas decorativas */
+    .corner-tl, .corner-tr, .corner-bl, .corner-br {
+        position: fixed; width: 40px; height: 40px; z-index: 200; pointer-events: none;
+    }
+    .corner-tl { top:14px; left:14px;  border-top:2px solid #C41E2E; border-left:2px solid #C41E2E; }
+    .corner-tr { top:14px; right:14px; border-top:2px solid #C41E2E; border-right:2px solid #C41E2E; }
+    .corner-bl { bottom:14px; left:14px;  border-bottom:2px solid #C41E2E; border-left:2px solid #C41E2E; }
+    .corner-br { bottom:14px; right:14px; border-bottom:2px solid #C41E2E; border-right:2px solid #C41E2E; }
+
+    /* ── SIDEBAR ── */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0D2B6E 0%, #091D4E 100%) !important;
-        border-right: none !important;
+        background: rgba(4,12,42,0.92) !important;
+        border-right: 1px solid rgba(100,150,255,0.12) !important;
+        backdrop-filter: blur(10px) !important;
     }
     [data-testid="stSidebar"] * { color: #E8EDF7 !important; }
     [data-testid="stSidebar"] .sidebar-divider {
-        border-top: 1px solid rgba(255,255,255,.15); margin: 12px 0;
+        border-top: 1px solid rgba(255,255,255,.10); margin: 10px 0;
     }
     [data-testid="stSidebar"] [data-testid="stButton"] button {
-        background: rgba(255,255,255,.08) !important;
-        border: 1px solid rgba(255,255,255,.18) !important;
-        color: #fff !important; border-radius: 8px !important;
-        font-family: 'Source Sans 3', sans-serif !important;
-        font-weight: 600 !important; transition: background .2s;
+        background: rgba(255,255,255,.06) !important;
+        border: 1px solid rgba(255,255,255,.14) !important;
+        color: #E8EDF7 !important; border-radius: 8px !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-size: 14px !important; font-weight: 600 !important;
+        letter-spacing: 1px !important; transition: all .2s !important;
     }
     [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
-        background: rgba(255,255,255,.18) !important;
+        background: rgba(255,255,255,.14) !important;
+    }
+    .nav-active button {
+        background: rgba(196,30,46,.18) !important;
+        border-color: rgba(196,30,46,.45) !important; color: #fff !important;
     }
 
-    .main .block-container { padding: 1.5rem 2rem 3rem 2rem; max-width:1400px; }
+    /* ── ÁREA PRINCIPAL ── */
+    .main .block-container {
+        padding: 1.5rem 2rem 3rem 2rem; max-width: 1400px;
+        position: relative; z-index: 10;
+    }
 
+    /* Contenedores internos transparentes */
+    [data-testid="stVerticalBlock"],
+    [data-testid="column"] > div:first-child,
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: transparent !important;
+    }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1.6rem; letter-spacing: 3px; color: #ffffff;
+        border-bottom: 2px solid #C41E2E;
+        padding-bottom: 6px; margin-bottom: 20px;
+    }
+
+    /* ── METRIC CARDS ── */
     .metric-card {
-        background: #fff; border-radius: 12px; padding: 20px 24px;
-        box-shadow: 0 1px 6px rgba(13,43,110,.10);
-        border-left: 4px solid var(--card-accent, #0D2B6E);
-        transition: transform .15s, box-shadow .15s;
+        background: rgba(13,43,110,0.50);
+        border: 1px solid rgba(100,150,255,0.18);
+        border-radius: 12px; padding: 18px 20px;
+        border-left: 4px solid var(--card-accent, #C41E2E);
+        transition: transform .15s;
+        backdrop-filter: blur(6px);
     }
-    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(13,43,110,.14); }
+    .metric-card:hover { transform: translateY(-2px); }
     .metric-card .mc-value {
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 2.4rem; font-weight: 800; line-height: 1; color: #0D2B6E;
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 2.6rem; letter-spacing: 2px; line-height: 1; color: #ffffff;
     }
     .metric-card .mc-label {
-        font-size: .82rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: .6px; color: #8592A3; margin-top: 4px;
+        font-size: .78rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 2px; color: rgba(180,210,255,.55); margin-top: 5px;
     }
 
+    /* ── ORDER CARDS ── */
     .order-card {
-        background: #fff; border-radius: 12px; padding: 20px 22px;
-        box-shadow: 0 1px 6px rgba(13,43,110,.09); margin-bottom: 14px;
-        border-top: 3px solid #0D2B6E; transition: transform .15s, box-shadow .15s;
+        background: rgba(13,43,110,0.50);
+        border: 1px solid rgba(100,150,255,0.18);
+        border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
+        border-top: 3px solid rgba(100,150,255,0.3);
+        transition: transform .15s; backdrop-filter: blur(6px);
     }
-    .order-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(13,43,110,.14); }
+    .order-card:hover { transform: translateY(-2px); border-top-color: #C41E2E; }
     .order-number {
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 1.15rem; font-weight: 700; color: #0D2B6E;
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1.2rem; letter-spacing: 2px; color: #ffffff;
     }
-    .order-model { font-size: .85rem; color: #4B5563; margin-top: 2px; }
+    .order-model { font-size: .84rem; color: rgba(180,210,255,.65); margin-top: 2px; }
+
+    /* Badges */
     .badge {
         display: inline-block; padding: 3px 10px; border-radius: 20px;
-        font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+        font-size: .70rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
     }
-    .badge-active    { background: #DBEAFE; color: #1E40AF; }
-    .badge-completed { background: #D1FAE5; color: #065F46; }
-    .badge-cancelled { background: #F3F4F6; color: #6B7280; }
+    .badge-active    { background: rgba(37,99,235,.25);  color: #93c5fd; border:1px solid rgba(37,99,235,.3); }
+    .badge-completed { background: rgba(34,197,94,.15);  color: #86efac; border:1px solid rgba(34,197,94,.2); }
+    .badge-cancelled { background: rgba(255,255,255,.08); color: rgba(180,210,255,.5); border:1px solid rgba(255,255,255,.1); }
 
-    .progress-wrap { background: #E5E7EB; border-radius: 6px; height: 8px; overflow:hidden; margin: 8px 0; }
-    .progress-fill { height: 8px; border-radius: 6px;
-                     background: linear-gradient(90deg, #0D2B6E, #2563EB); transition: width .4s; }
+    /* Progress bar */
+    .progress-wrap { background: rgba(255,255,255,.12); border-radius: 6px; height: 7px; overflow:hidden; margin: 8px 0; }
+    .progress-fill { height: 7px; border-radius: 6px;
+                     background: linear-gradient(90deg, #1d4ed8, #60a5fa); transition: width .4s; }
 
+    /* Semáforos */
     .semaphore-dot {
         display: inline-block; width: 12px; height: 12px;
         border-radius: 50%; margin-right: 6px; vertical-align: middle;
     }
-    .sem-green  { background: #22C55E; box-shadow: 0 0 6px #22C55E88; }
-    .sem-yellow { background: #F59E0B; box-shadow: 0 0 6px #F59E0B88; }
-    .sem-red    { background: #EF4444; box-shadow: 0 0 6px #EF444488; animation: pulse-red 1.2s infinite; }
-    .sem-gray   { background: #D1D5DB; }
+    .sem-green  { background: #22C55E; box-shadow: 0 0 6px rgba(34,197,94,.7); }
+    .sem-yellow { background: #F59E0B; box-shadow: 0 0 6px rgba(245,158,11,.7); }
+    .sem-red    { background: #EF4444; box-shadow: 0 0 6px rgba(239,68,68,.7); animation: pulse-red 1.2s infinite; }
+    .sem-gray   { background: rgba(255,255,255,.25); }
     @keyframes pulse-red {
-        0%,100% { box-shadow: 0 0 6px #EF444488; }
-        50%      { box-shadow: 0 0 14px #EF4444CC; }
+        0%,100% { box-shadow: 0 0 6px rgba(239,68,68,.6); }
+        50%      { box-shadow: 0 0 16px rgba(239,68,68,1); }
     }
 
+    /* ── ACTIVITY ROWS ── */
     .act-row {
-        background: #fff; border-radius: 10px; padding: 14px 18px; margin-bottom: 8px;
-        border-left: 4px solid var(--act-color, #D1D5DB);
-        box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        background: rgba(13,43,110,0.45);
+        border: 1px solid rgba(100,150,255,0.15);
+        border-radius: 10px; padding: 14px 18px; margin-bottom: 8px;
+        border-left: 4px solid var(--act-color, rgba(255,255,255,.2));
+        backdrop-filter: blur(4px);
     }
-    .act-row-completed  { --act-color: #22C55E; background: #F0FDF4; }
-    .act-row-inprogress { --act-color: #2563EB; }
-    .act-row-waiting    { --act-color: #F59E0B; background: #FFFBEB; }
-    .act-row-pending    { --act-color: #D1D5DB; }
-    .act-row-blocked    { --act-color: #EF4444; background: #FEF2F2; }
-    .act-name { font-family:'Barlow Condensed',sans-serif; font-size:1.05rem; font-weight:700; color:#0D2B6E; }
-    .act-meta { font-size:.78rem; color:#8592A3; margin-top:2px; }
+    .act-row-completed  { --act-color: #22C55E; background: rgba(34,197,94,.08); }
+    .act-row-inprogress { --act-color: #3b82f6; }
+    .act-row-waiting    { --act-color: #F59E0B; background: rgba(245,158,11,.08); }
+    .act-row-pending    { --act-color: rgba(255,255,255,.15); }
+    .act-row-blocked    { --act-color: #EF4444; background: rgba(239,68,68,.08); }
+    .act-name { font-family:'Bebas Neue',sans-serif; font-size:1.05rem; letter-spacing:1px; color:#ffffff; }
+    .act-meta { font-size:.76rem; color:rgba(180,210,255,.55); margin-top:2px; }
 
+    /* Phase chip */
     .phase-chip {
         display: inline-block; padding: 2px 10px; border-radius: 12px;
-        font-size: .70rem; font-weight: 700; text-transform: uppercase;
-        letter-spacing: .5px; background: #EEF2FF; color: #3730A3; margin-right: 6px;
+        font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+        background: rgba(100,150,255,.15); color: #93c5fd;
+        border: 1px solid rgba(100,150,255,.25); margin-right: 6px;
     }
 
-    .section-header {
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 1.5rem; font-weight: 800; color: #0D2B6E;
-        border-bottom: 3px solid #C41E2E;
-        padding-bottom: 6px; margin-bottom: 20px; letter-spacing: .4px;
-    }
-
+    /* Avatar */
     .avatar {
         display: inline-flex; align-items:center; justify-content:center;
-        width: 38px; height: 38px; border-radius: 50%;
-        font-family: 'Barlow Condensed', sans-serif;
-        font-weight: 800; font-size: 1rem; color: #fff; margin-right: 8px;
+        width: 36px; height: 36px; border-radius: 50%;
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 1rem; color: #fff; margin-right: 8px;
     }
 
-    .nav-active button {
-        background: rgba(196,30,46,.20) !important;
-        border-color: #C41E2E !important; color: #fff !important;
-    }
-
+    /* ── INPUTS / FORMS ── */
     [data-testid="stTextInput"] input,
     [data-testid="stSelectbox"] select,
     [data-testid="stNumberInput"] input,
     [data-testid="stTextArea"] textarea {
         border-radius: 8px !important;
-        border: 1.5px solid #D1D9E8 !important;
-        font-family: 'Source Sans 3', sans-serif !important;
-        background: #FFFFFF !important; color: #1F2937 !important;
+        border: 1px solid rgba(100,150,255,.25) !important;
+        background: rgba(255,255,255,.92) !important;
+        color: #1a2a5e !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-size: 15px !important;
     }
     [data-testid="stTextInput"] input::placeholder,
-    [data-testid="stTextArea"] textarea::placeholder { color: #9CA3AF !important; }
+    [data-testid="stTextArea"] textarea::placeholder { color: #8899bb !important; }
 
-    [data-testid="stForm"] label,
-    .main [data-testid="stWidgetLabel"] p,
-    .main [data-testid="stWidgetLabel"] span,
-    .main label p, .main label span { color: #1F2937 !important; }
+    /* Labels en blanco */
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stWidgetLabel"] span,
+    .main label p, .main label span,
+    [data-testid="stForm"] label { color: #ffffff !important; }
 
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] span,
     [data-testid="stSidebar"] div,
     [data-testid="stSidebar"] label { color: #E8EDF7 !important; }
 
-    [data-testid="stButton"] button[kind="primary"] {
-        background: #0D2B6E !important; border: none !important;
-        border-radius: 8px !important; font-family: 'Source Sans 3', sans-serif !important;
-        font-weight: 700 !important; letter-spacing: .3px !important;
-        transition: background .2s !important;
+    /* Form container */
+    [data-testid="stForm"] {
+        background: rgba(13,43,110,0.40) !important;
+        border: 1px solid rgba(100,150,255,.18) !important;
+        border-radius: 12px !important;
+        backdrop-filter: blur(8px) !important;
     }
-    [data-testid="stButton"] button[kind="primary"]:hover { background: #C41E2E !important; }
-    .stAlert { border-radius: 8px !important; }
 
-    [data-testid="stExpander"] summary p,
-    [data-testid="stExpander"] summary span,
-    [data-testid="stExpander"] details summary p {
-        color: #0D2B6E !important; font-weight: 600 !important;
+    /* Botones primarios */
+    [data-testid="stButton"] button[kind="primary"],
+    [data-testid="stFormSubmitButton"] button {
+        background: linear-gradient(135deg, #d42030 0%, #a8151f 100%) !important;
+        border: none !important; border-radius: 8px !important;
+        color: #ffffff !important;
+        font-family: 'Bebas Neue', sans-serif !important;
+        font-size: 16px !important; letter-spacing: 3px !important;
+        box-shadow: 0 4px 18px rgba(196,30,46,.45) !important;
+        transition: all .25s !important;
     }
+    [data-testid="stButton"] button[kind="primary"]:hover,
+    [data-testid="stFormSubmitButton"] button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 24px rgba(196,30,46,.65) !important;
+    }
+
+    /* Alerts / info boxes */
+    .stAlert { border-radius: 8px !important; }
+    [data-testid="stAlert"] {
+        background: rgba(196,30,46,0.10) !important;
+        border: 1px solid rgba(196,30,46,.30) !important;
+        border-radius: 8px !important;
+    }
+
+    /* Expander */
     [data-testid="stExpander"] {
-        background: #EEF2FF !important;
-        border: 1.5px solid #C7D2FE !important; border-radius: 8px !important;
+        background: rgba(13,43,110,.40) !important;
+        border: 1px solid rgba(100,150,255,.18) !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary span { color: #ffffff !important; font-weight: 600 !important; }
+
+    /* Tabs */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {
+        background: rgba(13,43,110,.35) !important;
+        border-radius: 8px !important; padding: 4px !important;
+        border: 1px solid rgba(100,150,255,.15) !important;
+    }
+    [data-testid="stTabs"] [data-baseweb="tab"] {
+        color: rgba(180,210,255,.7) !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-weight: 600 !important; letter-spacing: 1px !important;
+    }
+    [data-testid="stTabs"] [aria-selected="true"] {
+        background: rgba(196,30,46,.25) !important;
+        color: #ffffff !important;
+        border-radius: 6px !important;
+    }
+
+    /* Versión label */
+    .ver-label {
+        position: fixed; bottom: 16px; right: 20px; z-index: 200;
+        font-size: 9px; letter-spacing: 3px;
+        color: rgba(200,216,240,.25); text-transform: uppercase;
+        font-family: 'Rajdhani', sans-serif; pointer-events: none;
     }
     </style>
+
+    <!-- Decoración global (esquinas + burbujas + versión) -->
+    <div class="corner-tl"></div>
+    <div class="corner-tr"></div>
+    <div class="corner-bl"></div>
+    <div class="corner-br"></div>
+    <div class="ver-label">Sistema v2.0 · 2026</div>
+
+    <div class="bbl" style="width:5px;height:5px;left:4%;animation-duration:9s;animation-delay:-2s;"></div>
+    <div class="bbl" style="width:8px;height:8px;left:10%;animation-duration:14s;animation-delay:-7s;"></div>
+    <div class="bbl" style="width:4px;height:4px;left:17%;animation-duration:11s;animation-delay:-1s;"></div>
+    <div class="bbl" style="width:9px;height:9px;left:25%;animation-duration:16s;animation-delay:-11s;"></div>
+    <div class="bbl" style="width:5px;height:5px;left:33%;animation-duration:8s;animation-delay:-4s;"></div>
+    <div class="bbl" style="width:7px;height:7px;left:41%;animation-duration:13s;animation-delay:-9s;"></div>
+    <div class="bbl" style="width:3px;height:3px;left:49%;animation-duration:10s;animation-delay:-0s;"></div>
+    <div class="bbl" style="width:9px;height:9px;left:57%;animation-duration:17s;animation-delay:-6s;"></div>
+    <div class="bbl" style="width:4px;height:4px;left:65%;animation-duration:12s;animation-delay:-13s;"></div>
+    <div class="bbl" style="width:6px;height:6px;left:73%;animation-duration:9s;animation-delay:-3s;"></div>
+    <div class="bbl" style="width:10px;height:10px;left:80%;animation-duration:15s;animation-delay:-8s;"></div>
+    <div class="bbl" style="width:4px;height:4px;left:87%;animation-duration:11s;animation-delay:-5s;"></div>
+    <div class="bbl" style="width:6px;height:6px;left:94%;animation-duration:13s;animation-delay:-10s;"></div>
     """, unsafe_allow_html=True)
 
 
@@ -250,25 +387,15 @@ def _logo_img_tag(width: int = 160, style: str = "") -> str:
 
 def logo_sidebar() -> None:
     st.markdown(
-        '<div style="padding:18px 16px 12px 16px;">'
-        '<div style="display:flex;align-items:center;gap:10px;">'
-        '  <div style="width:36px;height:36px;border-radius:50%;background:#C41E2E;'
-        '  display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-        '  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"'
-        '  fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
-        '  <circle cx="12" cy="12" r="10"/>'
-        '  <line x1="12" y1="2" x2="12" y2="22"/>'
-        '  <line x1="6" y1="7" x2="18" y2="7"/>'
-        '  <path d="M5 19 Q12 22 19 19"/>'
-        '  </svg></div>'
-        '  <div>'
-        '    <div style="font-family:Barlow Condensed,Arial,sans-serif;font-size:1.3rem;'
-        '    font-weight:800;color:#fff;letter-spacing:2px;line-height:1;">IMEMSA</div>'
-        '    <div style="font-size:.62rem;font-weight:600;color:#8EA8D8;'
-        '    letter-spacing:1.8px;margin-top:1px;">MOTORES YAMAHA</div>'
-        '  </div>'
-        '</div>'
-        '<div style="height:2px;background:#C41E2E;border-radius:1px;margin-top:10px;"></div>'
+        '<div style="padding:20px 18px 14px 18px;">'
+        '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:30px;'
+        'letter-spacing:6px;color:#ffffff;line-height:1;'
+        'text-shadow:0 0 20px rgba(100,150,255,.4);">IMEMSA</div>'
+        '<div style="height:2px;margin:8px 0 5px;'
+        'background:linear-gradient(to right,#C41E2E 60%,transparent);'
+        'box-shadow:0 0 8px rgba(196,30,46,.5);"></div>'
+        '<div style="font-size:9px;letter-spacing:4px;color:#8EA8D8;'
+        'text-transform:uppercase;font-family:\'Rajdhani\',sans-serif;opacity:.8;">Motores Yamaha</div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -662,28 +789,34 @@ def page_dashboard() -> None:
     annual_count = len(orders)  # todos los pedidos activos + completados (no cancelados)
 
     st.markdown(
-        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
-        f'<div class="section-header" style="margin-bottom:0;">📊 Tablero de Pedidos</div>'
-        f'<span style="font-size:.82rem;color:#8592A3;">Actualizado: {datetime.today().strftime("%d/%m/%Y %H:%M")}</span>'
+        f'<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;">'
+        f'<div>'
+        f'  <div class="section-header" style="margin-bottom:0;">Tablero de Pedidos</div>'
+        f'</div>'
+        f'<span style="font-size:10px;letter-spacing:2px;color:rgba(180,210,255,.4);'
+        f'font-family:Rajdhani,sans-serif;text-transform:uppercase;'
+        f'padding:5px 12px;border:1px solid rgba(100,150,255,.18);border-radius:6px;'
+        f'background:rgba(13,43,110,.35);">{datetime.today().strftime("%d/%m/%Y %H:%M")}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    _kpi(c1, str(len(active)),    "Pedidos Activos",   "#0D2B6E")
-    _kpi(c2, str(len(completed)), "Completados",        "#059669")
-    _kpi(c3, str(annual_count),   f"Pedidos {year}",   "#7C3AED")
+    _kpi(c1, str(len(active)),    "Pedidos Activos",   "#3b82f6")
+    _kpi(c2, str(len(completed)), "Completados",        "#22c55e")
+    _kpi(c3, str(annual_count),   f"Pedidos {year}",   "#a78bfa")
     _kpi(c4, str(sem["red"]),     "Actividades Venc.",  "#C41E2E")
-    _kpi(c5, str(sem["yellow"]),  "En Riesgo",          "#D97706")
+    _kpi(c5, str(sem["yellow"]),  "En Riesgo",          "#f59e0b")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     if sem["red"] > 0:
         st.markdown(
-            f'<div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;'
-            f'padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">'
+            f'<div style="background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.30);'
+            f'border-radius:10px;padding:12px 18px;margin-bottom:16px;'
+            f'display:flex;align-items:center;gap:10px;">'
             f'{_sem_dot("red")}'
-            f'<span style="color:#991B1B;font-weight:700;font-size:.88rem;">'
+            f'<span style="color:#fca5a5;font-weight:600;font-size:.88rem;font-family:Rajdhani,sans-serif;">'
             f'{sem["red"]} actividad(es) vencida(s). Usa "Enviar alertas" en el menú lateral.</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -691,7 +824,7 @@ def page_dashboard() -> None:
 
     my_tasks = get_my_pending_activities(data, user["username"])
     if my_tasks:
-        st.markdown('<div class="section-header" style="font-size:1.1rem;">🔔 Mis tareas activas</div>',
+        st.markdown('<div class="section-header" style="font-size:1.2rem;">Mis Tareas Activas</div>',
                     unsafe_allow_html=True)
         for t in my_tasks:
             sem_color = get_semaphore(t)
@@ -818,28 +951,29 @@ def page_activities() -> None:
         sem_counts[c] = sem_counts.get(c, 0) + 1
 
     st.markdown(
-        f'<div style="background:#fff;border-radius:12px;padding:20px 24px;'
-        f'margin-bottom:18px;box-shadow:0 1px 6px rgba(13,43,110,.10);border-top:4px solid #0D2B6E;">'
+        f'<div style="background:rgba(13,43,110,.55);border-radius:12px;padding:20px 24px;'
+        f'margin-bottom:18px;border:1px solid rgba(100,150,255,.20);border-top:3px solid #C41E2E;'
+        f'backdrop-filter:blur(8px);">'
         f'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
         f'<div>'
-        f'  <div style="font-family:\'Barlow Condensed\',sans-serif;font-size:1.5rem;font-weight:800;color:#0D2B6E;">'
-        f'  📋 {order["order_number"]}</div>'
-        f'  <div style="font-size:.85rem;color:#4B5563;margin-top:3px;">'
+        f'  <div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.5rem;letter-spacing:3px;color:#fff;">'
+        f'  {order["order_number"]}</div>'
+        f'  <div style="font-size:.84rem;color:rgba(180,210,255,.65);margin-top:3px;">'
         f'  {order["motor_model"]} &nbsp;·&nbsp; {order["quantity"]} unidades &nbsp;·&nbsp; {order["supplier"]}</div>'
         f'</div>'
         f'<div style="text-align:right;">{_badge(order["status"])}'
-        f'  <div style="font-size:.78rem;color:#8592A3;margin-top:4px;">Creado: {order["created_at"]}</div>'
+        f'  <div style="font-size:.76rem;color:rgba(180,210,255,.45);margin-top:4px;">Creado: {order["created_at"]}</div>'
         f'</div></div>'
         f'<div style="margin-top:14px;">{_progress_bar(prog)}</div>'
-        f'<div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">'
-        f'  {_sem_dot("green")}<span style="font-size:.8rem;">{sem_counts["green"]} en tiempo</span>'
-        f'  {_sem_dot("yellow")}<span style="font-size:.8rem;">{sem_counts["yellow"]} en riesgo</span>'
-        f'  {_sem_dot("red")}<span style="font-size:.8rem;">{sem_counts["red"]} vencidas</span>'
+        f'<div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;">'
+        f'  {_sem_dot("green")}<span style="font-size:.8rem;color:rgba(180,210,255,.7);">{sem_counts["green"]} en tiempo</span>'
+        f'  {_sem_dot("yellow")}<span style="font-size:.8rem;color:rgba(180,210,255,.7);">{sem_counts["yellow"]} en riesgo</span>'
+        f'  {_sem_dot("red")}<span style="font-size:.8rem;color:rgba(180,210,255,.7);">{sem_counts["red"]} vencidas</span>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="section-header">🔢 Actividades del Proceso (19)</div>',
+    st.markdown('<div class="section-header">Actividades del Proceso (19)</div>',
                 unsafe_allow_html=True)
 
     current_phase = None
@@ -955,16 +1089,19 @@ def page_new_order() -> None:
     count = len([o for o in data["orders"]
                  if o.get("year") == year and o.get("status") != "cancelled"])
 
-    st.markdown('<div class="section-header">➕ Registrar Nuevo Pedido de Motores</div>',
+    st.markdown('<div class="section-header">Registrar Nuevo Pedido de Motores</div>',
                 unsafe_allow_html=True)
 
     remaining = MAX_ANNUAL_ORDERS - count
-    color_bar = "#22C55E" if remaining > 5 else "#F59E0B" if remaining > 2 else "#EF4444"
+    color_bar = "#22c55e" if remaining > 5 else "#f59e0b" if remaining > 2 else "#ef4444"
     st.markdown(
-        f'<div style="background:#fff;border-radius:10px;padding:16px 20px;'
-        f'margin-bottom:20px;box-shadow:0 1px 4px rgba(13,43,110,.08);'
-        f'border-left:4px solid {color_bar};">'
-        f'<span style="font-weight:700;color:{color_bar};">Pedidos {year}: {count}</span>'
+        f'<div style="background:rgba(13,43,110,.50);border-radius:10px;padding:14px 20px;'
+        f'margin-bottom:20px;border:1px solid rgba(100,150,255,.18);'
+        f'border-left:4px solid {color_bar};backdrop-filter:blur(6px);">'
+        f'<span style="font-family:\'Rajdhani\',sans-serif;font-weight:700;'
+        f'letter-spacing:1px;color:{color_bar};">Pedidos {year}: {count} / {MAX_ANNUAL_ORDERS}</span>'
+        f'<span style="font-size:.8rem;color:rgba(180,210,255,.5);margin-left:12px;">'
+        f'Disponibles: {remaining}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
