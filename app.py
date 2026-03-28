@@ -14,7 +14,7 @@ st.set_page_config(
     page_title="IMEMSA · Motores Yamaha",
     page_icon="⚓",
     layout="wide",
-    initial_sidebar_state="expanded",   # "expanded" en cada carga de página
+    initial_sidebar_state="expanded",
 )
 
 from utils.auth         import verify_login
@@ -66,364 +66,165 @@ def _app_invalidate() -> None:
 def inject_css() -> None:
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Source+Sans+3:wght@300;400;600;700&display=swap');
 
-    /* ── FONDO MARINO (todas las páginas) ── */
     html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Rajdhani', sans-serif;
-        background: radial-gradient(ellipse 120% 80% at 50% -10%,
-            #1a3a8f 0%, #0a1d5e 30%, #020b22 68%) !important;
-        min-height: 100vh;
+        font-family: 'Source Sans 3', sans-serif; background: #F0F3F9;
     }
-    #MainMenu, footer, header { visibility: hidden; }
+    h1,h2,h3,h4 { font-family: 'Barlow Condensed', sans-serif; letter-spacing:.5px; }
 
-    /* Scanlines */
-    [data-testid="stAppViewContainer"]::before {
-        content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-        background: repeating-linear-gradient(
-            0deg, transparent, transparent 3px,
-            rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
-    }
-
-    /* Burbujas (todas las páginas) */
-    @keyframes rise-bubble {
-        0%   { transform: translateY(0);      opacity: 0.55; }
-        80%  { opacity: 0.1; }
-        100% { transform: translateY(-105vh); opacity: 0; }
-    }
-    .bbl {
-        position: fixed; border-radius: 50%;
-        background: rgba(180,210,255,0.18); border: 1px solid rgba(180,210,255,0.28);
-        animation: rise-bubble linear infinite;
-        pointer-events: none; z-index: 1; bottom: -20px;
-    }
-
-    /* Esquinas decorativas */
-    .corner-tl, .corner-tr, .corner-bl, .corner-br {
-        position: fixed; width: 40px; height: 40px; z-index: 200; pointer-events: none;
-    }
-    .corner-tl { top:14px; left:14px;  border-top:2px solid #C41E2E; border-left:2px solid #C41E2E; }
-    .corner-tr { top:14px; right:14px; border-top:2px solid #C41E2E; border-right:2px solid #C41E2E; }
-    .corner-bl { bottom:14px; left:14px;  border-bottom:2px solid #C41E2E; border-left:2px solid #C41E2E; }
-    .corner-br { bottom:14px; right:14px; border-bottom:2px solid #C41E2E; border-right:2px solid #C41E2E; }
-
-    /* ── SIDEBAR — comportamiento normal, botón toggle siempre visible ── */
     [data-testid="stSidebar"] {
-        background: rgba(4,12,42,0.92) !important;
-        border-right: 1px solid rgba(100,150,255,0.12) !important;
-        backdrop-filter: blur(10px) !important;
-    }
-    /* Botón de cerrar sidebar — visible y estilizado */
-    [data-testid="stSidebarCollapseButton"] {
-        background: rgba(196,30,46,0.20) !important;
-        border-radius: 6px !important;
-    }
-    [data-testid="stSidebarCollapseButton"] svg { color: #ffffff !important; }
-    /* Botón de abrir sidebar (cuando está cerrado) — bien visible en móvil */
-    [data-testid="stSidebarCollapsedControl"] {
-        background: rgba(4,12,42,0.90) !important;
-        border: 1px solid rgba(196,30,46,0.50) !important;
-        border-radius: 0 8px 8px 0 !important;
-        visibility: visible !important;
-        display: flex !important;
-        z-index: 999 !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] svg { color: #ffffff !important; }
-    [data-testid="stSidebarCollapsedControl"] button {
-        background: transparent !important;
-        border: none !important;
+        background: linear-gradient(180deg, #0D2B6E 0%, #091D4E 100%) !important;
+        border-right: none !important;
     }
     [data-testid="stSidebar"] * { color: #E8EDF7 !important; }
     [data-testid="stSidebar"] .sidebar-divider {
-        border-top: 1px solid rgba(255,255,255,.10); margin: 10px 0;
+        border-top: 1px solid rgba(255,255,255,.15); margin: 12px 0;
     }
     [data-testid="stSidebar"] [data-testid="stButton"] button {
-        background: rgba(255,255,255,.06) !important;
-        border: 1px solid rgba(255,255,255,.14) !important;
-        color: #E8EDF7 !important; border-radius: 8px !important;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-size: 14px !important; font-weight: 600 !important;
-        letter-spacing: 1px !important; transition: all .2s !important;
+        background: rgba(255,255,255,.08) !important;
+        border: 1px solid rgba(255,255,255,.18) !important;
+        color: #fff !important; border-radius: 8px !important;
+        font-family: 'Source Sans 3', sans-serif !important;
+        font-weight: 600 !important; transition: background .2s;
     }
     [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
-        background: rgba(255,255,255,.14) !important;
-    }
-    .nav-active button {
-        background: rgba(196,30,46,.18) !important;
-        border-color: rgba(196,30,46,.45) !important; color: #fff !important;
+        background: rgba(255,255,255,.18) !important;
     }
 
-    /* ── ÁREA PRINCIPAL ── */
-    .main .block-container {
-        padding: 1.5rem 2rem 3rem 2rem; max-width: 1400px;
-        position: relative; z-index: 10;
-    }
+    .main .block-container { padding: 1.5rem 2rem 3rem 2rem; max-width:1400px; }
 
-    /* Contenedores internos transparentes */
-    [data-testid="stVerticalBlock"],
-    [data-testid="column"] > div:first-child,
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: transparent !important;
-    }
-
-    /* ── SECTION HEADER ── */
-    .section-header {
-        font-family: 'Bebas Neue', sans-serif;
-        font-size: 1.6rem; letter-spacing: 3px; color: #ffffff;
-        border-bottom: 2px solid #C41E2E;
-        padding-bottom: 6px; margin-bottom: 20px;
-    }
-
-    /* ── METRIC CARDS ── */
     .metric-card {
-        background: rgba(13,43,110,0.50);
-        border: 1px solid rgba(100,150,255,0.18);
-        border-radius: 12px; padding: 18px 20px;
-        border-left: 4px solid var(--card-accent, #C41E2E);
-        transition: transform .15s;
-        backdrop-filter: blur(6px);
+        background: #fff; border-radius: 12px; padding: 20px 24px;
+        box-shadow: 0 1px 6px rgba(13,43,110,.10);
+        border-left: 4px solid var(--card-accent, #0D2B6E);
+        transition: transform .15s, box-shadow .15s;
     }
-    .metric-card:hover { transform: translateY(-2px); }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(13,43,110,.14); }
     .metric-card .mc-value {
-        font-family: 'Bebas Neue', sans-serif;
-        font-size: 2.6rem; letter-spacing: 2px; line-height: 1; color: #ffffff;
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 2.4rem; font-weight: 800; line-height: 1; color: #0D2B6E;
     }
     .metric-card .mc-label {
-        font-size: .78rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 2px; color: rgba(180,210,255,.55); margin-top: 5px;
+        font-size: .82rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: .6px; color: #8592A3; margin-top: 4px;
     }
 
-    /* ── ORDER CARDS ── */
     .order-card {
-        background: rgba(13,43,110,0.50);
-        border: 1px solid rgba(100,150,255,0.18);
-        border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
-        border-top: 3px solid rgba(100,150,255,0.3);
-        transition: transform .15s; backdrop-filter: blur(6px);
+        background: #fff; border-radius: 12px; padding: 20px 22px;
+        box-shadow: 0 1px 6px rgba(13,43,110,.09); margin-bottom: 14px;
+        border-top: 3px solid #0D2B6E; transition: transform .15s, box-shadow .15s;
     }
-    .order-card:hover { transform: translateY(-2px); border-top-color: #C41E2E; }
+    .order-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(13,43,110,.14); }
     .order-number {
-        font-family: 'Bebas Neue', sans-serif;
-        font-size: 1.2rem; letter-spacing: 2px; color: #ffffff;
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 1.15rem; font-weight: 700; color: #0D2B6E;
     }
-    .order-model { font-size: .84rem; color: rgba(180,210,255,.65); margin-top: 2px; }
-
-    /* Badges */
+    .order-model { font-size: .85rem; color: #4B5563; margin-top: 2px; }
     .badge {
         display: inline-block; padding: 3px 10px; border-radius: 20px;
-        font-size: .70rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+        font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
     }
-    .badge-active    { background: rgba(37,99,235,.25);  color: #93c5fd; border:1px solid rgba(37,99,235,.3); }
-    .badge-completed { background: rgba(34,197,94,.15);  color: #86efac; border:1px solid rgba(34,197,94,.2); }
-    .badge-cancelled { background: rgba(255,255,255,.08); color: rgba(180,210,255,.5); border:1px solid rgba(255,255,255,.1); }
+    .badge-active    { background: #DBEAFE; color: #1E40AF; }
+    .badge-completed { background: #D1FAE5; color: #065F46; }
+    .badge-cancelled { background: #F3F4F6; color: #6B7280; }
 
-    /* Progress bar */
-    .progress-wrap { background: rgba(255,255,255,.12); border-radius: 6px; height: 7px; overflow:hidden; margin: 8px 0; }
-    .progress-fill { height: 7px; border-radius: 6px;
-                     background: linear-gradient(90deg, #1d4ed8, #60a5fa); transition: width .4s; }
+    .progress-wrap { background: #E5E7EB; border-radius: 6px; height: 8px; overflow:hidden; margin: 8px 0; }
+    .progress-fill { height: 8px; border-radius: 6px;
+                     background: linear-gradient(90deg, #0D2B6E, #2563EB); transition: width .4s; }
 
-    /* Semáforos */
     .semaphore-dot {
         display: inline-block; width: 12px; height: 12px;
         border-radius: 50%; margin-right: 6px; vertical-align: middle;
     }
-    .sem-green  { background: #22C55E; box-shadow: 0 0 6px rgba(34,197,94,.7); }
-    .sem-yellow { background: #F59E0B; box-shadow: 0 0 6px rgba(245,158,11,.7); }
-    .sem-red    { background: #EF4444; box-shadow: 0 0 6px rgba(239,68,68,.7); animation: pulse-red 1.2s infinite; }
-    .sem-gray   { background: rgba(255,255,255,.25); }
+    .sem-green  { background: #22C55E; box-shadow: 0 0 6px #22C55E88; }
+    .sem-yellow { background: #F59E0B; box-shadow: 0 0 6px #F59E0B88; }
+    .sem-red    { background: #EF4444; box-shadow: 0 0 6px #EF444488; animation: pulse-red 1.2s infinite; }
+    .sem-gray   { background: #D1D5DB; }
     @keyframes pulse-red {
-        0%,100% { box-shadow: 0 0 6px rgba(239,68,68,.6); }
-        50%      { box-shadow: 0 0 16px rgba(239,68,68,1); }
+        0%,100% { box-shadow: 0 0 6px #EF444488; }
+        50%      { box-shadow: 0 0 14px #EF4444CC; }
     }
 
-    /* ── ACTIVITY ROWS ── */
     .act-row {
-        background: rgba(13,43,110,0.45);
-        border: 1px solid rgba(100,150,255,0.15);
-        border-radius: 10px; padding: 14px 18px; margin-bottom: 8px;
-        border-left: 4px solid var(--act-color, rgba(255,255,255,.2));
-        backdrop-filter: blur(4px);
+        background: #fff; border-radius: 10px; padding: 14px 18px; margin-bottom: 8px;
+        border-left: 4px solid var(--act-color, #D1D5DB);
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
     }
-    .act-row-completed  { --act-color: #22C55E; background: rgba(34,197,94,.08); }
-    .act-row-inprogress { --act-color: #3b82f6; }
-    .act-row-waiting    { --act-color: #F59E0B; background: rgba(245,158,11,.08); }
-    .act-row-pending    { --act-color: rgba(255,255,255,.15); }
-    .act-row-blocked    { --act-color: #EF4444; background: rgba(239,68,68,.08); }
-    .act-name { font-family:'Bebas Neue',sans-serif; font-size:1.05rem; letter-spacing:1px; color:#ffffff; }
-    .act-meta { font-size:.76rem; color:rgba(180,210,255,.55); margin-top:2px; }
+    .act-row-completed  { --act-color: #22C55E; background: #F0FDF4; }
+    .act-row-inprogress { --act-color: #2563EB; }
+    .act-row-waiting    { --act-color: #F59E0B; background: #FFFBEB; }
+    .act-row-pending    { --act-color: #D1D5DB; }
+    .act-row-blocked    { --act-color: #EF4444; background: #FEF2F2; }
+    .act-name { font-family:'Barlow Condensed',sans-serif; font-size:1.05rem; font-weight:700; color:#0D2B6E; }
+    .act-meta { font-size:.78rem; color:#8592A3; margin-top:2px; }
 
-    /* Phase chip */
     .phase-chip {
         display: inline-block; padding: 2px 10px; border-radius: 12px;
-        font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
-        background: rgba(100,150,255,.15); color: #93c5fd;
-        border: 1px solid rgba(100,150,255,.25); margin-right: 6px;
+        font-size: .70rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .5px; background: #EEF2FF; color: #3730A3; margin-right: 6px;
     }
 
-    /* Avatar */
+    .section-header {
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 1.5rem; font-weight: 800; color: #0D2B6E;
+        border-bottom: 3px solid #C41E2E;
+        padding-bottom: 6px; margin-bottom: 20px; letter-spacing: .4px;
+    }
+
     .avatar {
         display: inline-flex; align-items:center; justify-content:center;
-        width: 36px; height: 36px; border-radius: 50%;
-        font-family: 'Bebas Neue', sans-serif;
-        font-size: 1rem; color: #fff; margin-right: 8px;
+        width: 38px; height: 38px; border-radius: 50%;
+        font-family: 'Barlow Condensed', sans-serif;
+        font-weight: 800; font-size: 1rem; color: #fff; margin-right: 8px;
     }
 
-    /* ── INPUTS / FORMS ── */
+    .nav-active button {
+        background: rgba(196,30,46,.20) !important;
+        border-color: #C41E2E !important; color: #fff !important;
+    }
+
     [data-testid="stTextInput"] input,
     [data-testid="stSelectbox"] select,
     [data-testid="stNumberInput"] input,
     [data-testid="stTextArea"] textarea {
         border-radius: 8px !important;
-        border: 1px solid rgba(100,150,255,.25) !important;
-        background: rgba(255,255,255,.92) !important;
-        color: #1a2a5e !important;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-size: 15px !important;
+        border: 1.5px solid #D1D9E8 !important;
+        font-family: 'Source Sans 3', sans-serif !important;
+        background: #FFFFFF !important; color: #1F2937 !important;
     }
     [data-testid="stTextInput"] input::placeholder,
-    [data-testid="stTextArea"] textarea::placeholder { color: #8899bb !important; }
+    [data-testid="stTextArea"] textarea::placeholder { color: #9CA3AF !important; }
 
-    /* Labels en blanco */
-    [data-testid="stWidgetLabel"] p,
-    [data-testid="stWidgetLabel"] span,
-    .main label p, .main label span,
-    [data-testid="stForm"] label { color: #ffffff !important; }
+    [data-testid="stForm"] label,
+    .main [data-testid="stWidgetLabel"] p,
+    .main [data-testid="stWidgetLabel"] span,
+    .main label p, .main label span { color: #1F2937 !important; }
 
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] span,
     [data-testid="stSidebar"] div,
     [data-testid="stSidebar"] label { color: #E8EDF7 !important; }
 
-    /* Form container */
-    [data-testid="stForm"] {
-        background: rgba(13,43,110,0.40) !important;
-        border: 1px solid rgba(100,150,255,.18) !important;
-        border-radius: 12px !important;
-        backdrop-filter: blur(8px) !important;
+    [data-testid="stButton"] button[kind="primary"] {
+        background: #0D2B6E !important; border: none !important;
+        border-radius: 8px !important; font-family: 'Source Sans 3', sans-serif !important;
+        font-weight: 700 !important; letter-spacing: .3px !important;
+        transition: background .2s !important;
     }
-
-    /* Botones primarios */
-    [data-testid="stButton"] button[kind="primary"],
-    [data-testid="stFormSubmitButton"] button {
-        background: linear-gradient(135deg, #d42030 0%, #a8151f 100%) !important;
-        border: none !important; border-radius: 8px !important;
-        color: #ffffff !important;
-        font-family: 'Bebas Neue', sans-serif !important;
-        font-size: 16px !important; letter-spacing: 3px !important;
-        box-shadow: 0 4px 18px rgba(196,30,46,.45) !important;
-        transition: all .25s !important;
-    }
-    [data-testid="stButton"] button[kind="primary"]:hover,
-    [data-testid="stFormSubmitButton"] button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 6px 24px rgba(196,30,46,.65) !important;
-    }
-
-    /* Alerts / info boxes */
+    [data-testid="stButton"] button[kind="primary"]:hover { background: #C41E2E !important; }
     .stAlert { border-radius: 8px !important; }
-    [data-testid="stAlert"] {
-        background: rgba(196,30,46,0.10) !important;
-        border: 1px solid rgba(196,30,46,.30) !important;
-        border-radius: 8px !important;
-    }
 
-    /* Expander */
-    [data-testid="stExpander"] {
-        background: rgba(13,43,110,.40) !important;
-        border: 1px solid rgba(100,150,255,.18) !important;
-        border-radius: 8px !important;
-    }
     [data-testid="stExpander"] summary p,
-    [data-testid="stExpander"] summary span { color: #ffffff !important; font-weight: 600 !important; }
-
-    /* Tabs */
-    [data-testid="stTabs"] [data-baseweb="tab-list"] {
-        background: rgba(13,43,110,.35) !important;
-        border-radius: 8px !important; padding: 4px !important;
-        border: 1px solid rgba(100,150,255,.15) !important;
+    [data-testid="stExpander"] summary span,
+    [data-testid="stExpander"] details summary p {
+        color: #0D2B6E !important; font-weight: 600 !important;
     }
-    [data-testid="stTabs"] [data-baseweb="tab"] {
-        color: rgba(180,210,255,.7) !important;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-weight: 600 !important; letter-spacing: 1px !important;
-    }
-    [data-testid="stTabs"] [aria-selected="true"] {
-        background: rgba(196,30,46,.25) !important;
-        color: #ffffff !important;
-        border-radius: 6px !important;
-    }
-
-    /* ── BARRA NAV MÓVIL — siempre visible ── */
-    .mobile-nav {
-        display: none;
-        background: rgba(4,12,42,0.95);
-        border-bottom: 1px solid rgba(100,150,255,.15);
-        border-radius: 0 0 10px 10px;
-        padding: 8px 12px;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-        backdrop-filter: blur(10px);
-    }
-    @media (max-width: 768px) {
-        .mobile-nav { display: flex !important; }
-        [data-testid="stSidebar"] { display: none !important; }
-    }
-    .mnav-btn {
-        flex: 1; min-width: 100px;
-        padding: 8px 10px;
-        background: rgba(255,255,255,.06);
-        border: 1px solid rgba(100,150,255,.2);
-        border-radius: 7px;
-        color: #c8d8f0;
-        font-family: "Rajdhani", sans-serif;
-        font-size: 13px; font-weight: 600; letter-spacing: 1px;
-        text-align: center; cursor: pointer;
-        transition: all .2s;
-    }
-    .mnav-btn:hover, .mnav-btn.active {
-        background: rgba(196,30,46,.20);
-        border-color: rgba(196,30,46,.45);
-        color: #ffffff;
-    }
-    .mnav-logo {
-        width: 100%;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: 20px; letter-spacing: 5px; color: #fff;
-        padding: 2px 4px 6px;
-        border-bottom: 1px solid rgba(196,30,46,.4);
-        margin-bottom: 4px;
-    }
-
-    /* Versión label */
-    .ver-label {
-        position: fixed; bottom: 16px; right: 20px; z-index: 200;
-        font-size: 9px; letter-spacing: 3px;
-        color: rgba(200,216,240,.25); text-transform: uppercase;
-        font-family: 'Rajdhani', sans-serif; pointer-events: none;
+    [data-testid="stExpander"] {
+        background: #EEF2FF !important;
+        border: 1.5px solid #C7D2FE !important; border-radius: 8px !important;
     }
     </style>
-
-    <!-- Decoración global (esquinas + burbujas + versión) -->
-    <div class="corner-tl"></div>
-    <div class="corner-tr"></div>
-    <div class="corner-bl"></div>
-    <div class="corner-br"></div>
-    <div class="ver-label">Sistema v2.0 · 2026</div>
-
-    <div class="bbl" style="width:5px;height:5px;left:4%;animation-duration:9s;animation-delay:-2s;"></div>
-    <div class="bbl" style="width:8px;height:8px;left:10%;animation-duration:14s;animation-delay:-7s;"></div>
-    <div class="bbl" style="width:4px;height:4px;left:17%;animation-duration:11s;animation-delay:-1s;"></div>
-    <div class="bbl" style="width:9px;height:9px;left:25%;animation-duration:16s;animation-delay:-11s;"></div>
-    <div class="bbl" style="width:5px;height:5px;left:33%;animation-duration:8s;animation-delay:-4s;"></div>
-    <div class="bbl" style="width:7px;height:7px;left:41%;animation-duration:13s;animation-delay:-9s;"></div>
-    <div class="bbl" style="width:3px;height:3px;left:49%;animation-duration:10s;animation-delay:-0s;"></div>
-    <div class="bbl" style="width:9px;height:9px;left:57%;animation-duration:17s;animation-delay:-6s;"></div>
-    <div class="bbl" style="width:4px;height:4px;left:65%;animation-duration:12s;animation-delay:-13s;"></div>
-    <div class="bbl" style="width:6px;height:6px;left:73%;animation-duration:9s;animation-delay:-3s;"></div>
-    <div class="bbl" style="width:10px;height:10px;left:80%;animation-duration:15s;animation-delay:-8s;"></div>
-    <div class="bbl" style="width:4px;height:4px;left:87%;animation-duration:11s;animation-delay:-5s;"></div>
-    <div class="bbl" style="width:6px;height:6px;left:94%;animation-duration:13s;animation-delay:-10s;"></div>
     """, unsafe_allow_html=True)
 
 
@@ -449,15 +250,25 @@ def _logo_img_tag(width: int = 160, style: str = "") -> str:
 
 def logo_sidebar() -> None:
     st.markdown(
-        '<div style="padding:20px 18px 14px 18px;">'
-        '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:30px;'
-        'letter-spacing:6px;color:#ffffff;line-height:1;'
-        'text-shadow:0 0 20px rgba(100,150,255,.4);">IMEMSA</div>'
-        '<div style="height:2px;margin:8px 0 5px;'
-        'background:linear-gradient(to right,#C41E2E 60%,transparent);'
-        'box-shadow:0 0 8px rgba(196,30,46,.5);"></div>'
-        '<div style="font-size:9px;letter-spacing:4px;color:#8EA8D8;'
-        'text-transform:uppercase;font-family:\'Rajdhani\',sans-serif;opacity:.8;">Motores Yamaha</div>'
+        '<div style="padding:18px 16px 12px 16px;">'
+        '<div style="display:flex;align-items:center;gap:10px;">'
+        '  <div style="width:36px;height:36px;border-radius:50%;background:#C41E2E;'
+        '  display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        '  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"'
+        '  fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+        '  <circle cx="12" cy="12" r="10"/>'
+        '  <line x1="12" y1="2" x2="12" y2="22"/>'
+        '  <line x1="6" y1="7" x2="18" y2="7"/>'
+        '  <path d="M5 19 Q12 22 19 19"/>'
+        '  </svg></div>'
+        '  <div>'
+        '    <div style="font-family:Barlow Condensed,Arial,sans-serif;font-size:1.3rem;'
+        '    font-weight:800;color:#fff;letter-spacing:2px;line-height:1;">IMEMSA</div>'
+        '    <div style="font-size:.62rem;font-weight:600;color:#8EA8D8;'
+        '    letter-spacing:1.8px;margin-top:1px;">MOTORES YAMAHA</div>'
+        '  </div>'
+        '</div>'
+        '<div style="height:2px;background:#C41E2E;border-radius:1px;margin-top:10px;"></div>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -507,220 +318,48 @@ def _act_row_class(status: str) -> str:
 # ══════════════════════════════════════════════════════════
 
 def page_login() -> None:
-    # ── CSS cinematográfico IMEMSA v2.0 ──────────────────────────────────────
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;600;700&display=swap');
-
-    /* Fondo principal */
     [data-testid="stAppViewContainer"] {
-        background: radial-gradient(ellipse 90% 70% at 50% -5%,
-            #1a3a8f 0%, #0a1d5e 28%, #020b22 65%) !important;
-        min-height: 100vh;
+        background: linear-gradient(135deg,#0D2B6E 0%,#1A3F8F 55%,#16387A 100%) !important;
     }
-    #MainMenu, footer, header { visibility: hidden; }
-    .main .block-container { padding-top: 0 !important; }
-
-    /* Scanlines overlay */
-    [data-testid="stAppViewContainer"]::before {
-        content: '';
-        position: fixed; inset: 0; z-index: 0; pointer-events: none;
-        background: repeating-linear-gradient(
-            0deg, transparent, transparent 3px,
-            rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
-        );
-    }
-
-    /* Quitar fondos blancos de contenedores internos */
     [data-testid="stAppViewContainer"] [data-testid="stVerticalBlock"],
-    [data-testid="stAppViewContainer"] [data-testid="column"] > div:first-child,
+    [data-testid="stAppViewContainer"] [data-testid="column"] > div:first-child {
+        background: transparent !important; box-shadow: none !important;
+    }
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
+        background: transparent !important; border: none !important; box-shadow: none !important;
     }
-
-    /* ── FIX 1: Labels "Usuario" y "Contraseña" en blanco ── */
-    [data-testid="stTextInput"] label,
-    [data-testid="stTextInput"] label p,
-    [data-testid="stTextInput"] label span,
-    [data-testid="stWidgetLabel"] p,
-    [data-testid="stWidgetLabel"] span {
-        color: #ffffff !important;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-size: 13px !important;
-        letter-spacing: 3px !important;
-        text-transform: uppercase !important;
+    .login-col [data-testid="stTextInput"] input {
+        background: rgba(255,255,255,.12) !important;
+        border: 1.5px solid rgba(255,255,255,.30) !important;
+        color: #fff !important; border-radius: 8px !important;
     }
-
-    /* Inputs */
-    [data-testid="stTextInput"] input {
-        background: rgba(255,255,255,0.93) !important;
-        border: none !important;
-        border-radius: 7px !important;
-        color: #1a2a5e !important;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-size: 15px !important;
-        transition: box-shadow 0.25s !important;
+    .login-col [data-testid="stTextInput"] input::placeholder { color: rgba(255,255,255,.45) !important; }
+    .login-col [data-testid="stTextInput"] label { color: rgba(255,255,255,.85) !important; font-weight:600 !important; }
+    .login-col [data-testid="stFormSubmitButton"] button {
+        background: #C41E2E !important; border: none !important; color: #fff !important;
+        font-size: 1rem !important; font-weight: 700 !important;
+        border-radius: 8px !important; padding: 12px !important; transition: background .2s !important;
     }
-    [data-testid="stTextInput"] input:focus {
-        box-shadow: 0 0 0 2px #C41E2E !important;
-    }
-    [data-testid="stTextInput"] input::placeholder {
-        color: #8899bb !important;
-    }
-
-    /* ── FIX 2: Estilo del form container via CSS (sin div wrapper vacío) ── */
-    [data-testid="stForm"] {
-        background: rgba(13,43,110,0.45) !important;
-        border: 1px solid rgba(100,150,255,0.18) !important;
-        border-radius: 12px !important;
-        padding: 10px 14px !important;
-        backdrop-filter: blur(10px) !important;
-    }
-
-    /* Botón submit */
-    [data-testid="stFormSubmitButton"] button {
-        width: 100% !important;
-        background: linear-gradient(135deg, #d42030 0%, #a8151f 100%) !important;
-        border: none !important;
-        border-radius: 8px !important;
-        color: #ffffff !important;
-        font-family: 'Bebas Neue', sans-serif !important;
-        font-size: 20px !important;
-        letter-spacing: 5px !important;
-        padding: 13px !important;
-        box-shadow: 0 4px 20px rgba(196,30,46,0.55) !important;
-        transition: all 0.25s !important;
-    }
-    [data-testid="stFormSubmitButton"] button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 28px rgba(196,30,46,0.7) !important;
-    }
-
-    /* Mensaje de error */
-    [data-testid="stAlert"] {
-        background: rgba(196,30,46,0.12) !important;
-        border: 1px solid rgba(196,30,46,0.35) !important;
-        border-radius: 8px !important;
-        color: #f07080 !important;
-    }
-
-    /* Esquinas decorativas */
-    .corner-tl, .corner-tr, .corner-bl, .corner-br {
-        position: fixed; width: 40px; height: 40px; z-index: 100; pointer-events: none;
-    }
-    .corner-tl { top:16px; left:16px;  border-top:2px solid #C41E2E; border-left:2px solid #C41E2E; }
-    .corner-tr { top:16px; right:16px; border-top:2px solid #C41E2E; border-right:2px solid #C41E2E; }
-    .corner-bl { bottom:16px; left:16px;  border-bottom:2px solid #C41E2E; border-left:2px solid #C41E2E; }
-    .corner-br { bottom:16px; right:16px; border-bottom:2px solid #C41E2E; border-right:2px solid #C41E2E; }
-
-    /* ── FIX 3: Burbujas en HTML puro (sin JS) ── */
-    @keyframes rise-bubble {
-        0%   { transform: translateY(0);      opacity: 0.65; }
-        80%  { opacity: 0.15; }
-        100% { transform: translateY(-105vh); opacity: 0; }
-    }
-    .bbl {
-        position: fixed; border-radius: 50%;
-        background: rgba(180,210,255,0.20);
-        border: 1px solid rgba(180,210,255,0.32);
-        animation: rise-bubble linear infinite;
-        pointer-events: none; z-index: 1;
-        bottom: -20px;
-    }
+    .login-col [data-testid="stFormSubmitButton"] button:hover { background: #0D2B6E !important; }
     </style>
-
-    <!-- Esquinas decorativas -->
-    <div class="corner-tl"></div>
-    <div class="corner-tr"></div>
-    <div class="corner-bl"></div>
-    <div class="corner-br"></div>
-
-    <!-- FIX 3: Burbujas con HTML puro, sin JS -->
-    <div class="bbl" style="width:5px;height:5px;left:4%;animation-duration:9s;animation-delay:-2s;"></div>
-    <div class="bbl" style="width:8px;height:8px;left:10%;animation-duration:14s;animation-delay:-7s;"></div>
-    <div class="bbl" style="width:4px;height:4px;left:17%;animation-duration:11s;animation-delay:-1s;"></div>
-    <div class="bbl" style="width:10px;height:10px;left:24%;animation-duration:16s;animation-delay:-11s;"></div>
-    <div class="bbl" style="width:5px;height:5px;left:31%;animation-duration:8s;animation-delay:-4s;"></div>
-    <div class="bbl" style="width:7px;height:7px;left:38%;animation-duration:13s;animation-delay:-9s;"></div>
-    <div class="bbl" style="width:3px;height:3px;left:45%;animation-duration:10s;animation-delay:-0s;"></div>
-    <div class="bbl" style="width:9px;height:9px;left:52%;animation-duration:17s;animation-delay:-6s;"></div>
-    <div class="bbl" style="width:4px;height:4px;left:59%;animation-duration:12s;animation-delay:-13s;"></div>
-    <div class="bbl" style="width:6px;height:6px;left:66%;animation-duration:9s;animation-delay:-3s;"></div>
-    <div class="bbl" style="width:11px;height:11px;left:72%;animation-duration:15s;animation-delay:-8s;"></div>
-    <div class="bbl" style="width:4px;height:4px;left:79%;animation-duration:11s;animation-delay:-5s;"></div>
-    <div class="bbl" style="width:7px;height:7px;left:85%;animation-duration:13s;animation-delay:-10s;"></div>
-    <div class="bbl" style="width:5px;height:5px;left:91%;animation-duration:8s;animation-delay:-15s;"></div>
-    <div class="bbl" style="width:9px;height:9px;left:97%;animation-duration:16s;animation-delay:-2s;"></div>
-    <div class="bbl" style="width:3px;height:3px;left:13%;animation-duration:10s;animation-delay:-18s;"></div>
-    <div class="bbl" style="width:6px;height:6px;left:55%;animation-duration:12s;animation-delay:-16s;"></div>
-    <div class="bbl" style="width:8px;height:8px;left:42%;animation-duration:7s;animation-delay:-12s;"></div>
-
-    <!-- Label versión -->
-    <div style="position:fixed;bottom:18px;right:22px;z-index:100;
-        font-size:9px;letter-spacing:3px;color:rgba(200,216,240,0.3);
-        text-transform:uppercase;font-family:'Rajdhani',sans-serif;">
-        Sistema v2.0 · 2026
-    </div>
     """, unsafe_allow_html=True)
-
-    # ── Espaciado superior ────────────────────────────────────────────────────
-    st.markdown("<div style='height:5vh'></div>", unsafe_allow_html=True)
 
     col_l, col_c, col_r = st.columns([1, 1.1, 1])
     with col_c:
-
-        # ── Logo block ────────────────────────────────────────────────────────
-        st.markdown("""
-        <div style="
-            background: rgba(13,43,110,0.60);
-            border: 1px solid rgba(100,150,255,0.20);
-            border-radius: 12px;
-            padding: 22px 24px 18px;
-            text-align: center;
-            backdrop-filter: blur(8px);
-            margin-bottom: 20px;
-        ">
-            <div style="
-                font-family: 'Bebas Neue', sans-serif;
-                font-size: 46px; letter-spacing: 6px;
-                color: #ffffff;
-                text-shadow: 0 0 30px rgba(100,150,255,0.5);
-                line-height: 1;
-            ">IMEMSA</div>
-            <div style="
-                width: 200px; height: 2px; margin: 10px auto;
-                background: linear-gradient(to right, transparent, #C41E2E 30%, #C41E2E 70%, transparent);
-                box-shadow: 0 0 10px rgba(196,30,46,0.55);
-            "></div>
-            <div style="
-                font-size: 11px; letter-spacing: 6px;
-                color: #c8d8f0; opacity: 0.7; text-transform: uppercase;
-                font-family: 'Rajdhani', sans-serif;
-            ">Motores Yamaha</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── Subtítulo (FIX 2: sin div wrapper que genera rectángulo) ─────────
-        st.markdown("""
-        <p style="text-align:center; margin-bottom:18px; font-size:14px;
-            letter-spacing:1px; color:#c8d8f0; line-height:1.6;
-            font-family:'Rajdhani',sans-serif;">
-            Sistema de Seguimiento ·
-            <span style="color:#ffffff;font-weight:600;">Proceso Transversal</span><br>
-            de Compra de Motores
-        </p>
-        """, unsafe_allow_html=True)
-
-        # ── Form (FIX 2: sin st.markdown wrapper, estilo aplicado por CSS) ───
+        st.markdown('<div class="login-col">', unsafe_allow_html=True)
+        logo_login()
+        st.markdown(
+            '<p style="text-align:center;color:rgba(255,255,255,.82);font-size:.88rem;'
+            'margin-bottom:28px;margin-top:4px;">Sistema de Seguimiento · Proceso Transversal de Compra de Motores</p>',
+            unsafe_allow_html=True,
+        )
         with st.form("login_form"):
-            username  = st.text_input("👤  Usuario",    placeholder="Ej. dgonzalez")
+            username  = st.text_input("👤  Usuario", placeholder="Ej. dgonzalez")
             password  = st.text_input("🔒  Contraseña", type="password")
-            submitted = st.form_submit_button("Ingresar al Sistema",
-                                              use_container_width=True, type="primary")
+            submitted = st.form_submit_button("Ingresar al sistema", use_container_width=True, type="primary")
 
-        # ── Lógica de autenticación (sin cambios) ─────────────────────────────
         if submitted:
             ok, user_info = verify_login(username, password)
             if ok:
@@ -731,66 +370,12 @@ def page_login() -> None:
             else:
                 st.error("Usuario o contraseña incorrectos.")
 
-        # ── Footer ────────────────────────────────────────────────────────────
         st.markdown(
-            '<p style="text-align:center;color:rgba(255,255,255,.30);'
-            'font-size:.72rem;margin-top:20px;font-family:\'Rajdhani\',sans-serif;">'
+            '<p style="text-align:center;color:rgba(255,255,255,.40);font-size:.74rem;margin-top:24px;">'
             '© 2026 IMEMSA — Uso interno. Acceso restringido.</p>',
             unsafe_allow_html=True,
         )
-
-
-# ══════════════════════════════════════════════════════════
-#  NAV MÓVIL (visible solo en pantallas pequeñas)
-# ══════════════════════════════════════════════════════════
-
-def render_mobile_nav() -> None:
-    """Barra de navegación superior para móvil — se muestra solo en pantallas ≤768px."""
-    user = st.session_state.get("user", {})
-    page = st.session_state.get("page", "dashboard")
-
-    nav_items = [
-        ("📊", "Tablero", "dashboard"),
-        ("📋", "Actividades", "activities"),
-    ]
-    if user.get("can_create_orders"):
-        nav_items.append(("➕", "Nuevo Pedido", "new_order"))
-    nav_items.append(("🚪", "Salir", "logout"))
-
-    active_map = {k: "active" if page == k else "" for _, _, k in nav_items}
-
-    # Barra visual
-    logo_html = '<div class="mnav-logo">IMEMSA &middot; Motores Yamaha</div>'
-    st.markdown('<div class="mobile-nav">' + logo_html + '</div>', unsafe_allow_html=True)
-
-    # Botones de navegación reales con estilo
-    st.markdown("""
-    <style>
-    @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div > div > button {
-            background: rgba(255,255,255,.06) !important;
-            border: 1px solid rgba(100,150,255,.2) !important;
-            color: #c8d8f0 !important;
-            border-radius: 7px !important;
-            font-family: "Rajdhani", sans-serif !important;
-            font-weight: 600 !important; letter-spacing: 1px !important;
-        }
-    }
-    </style>""", unsafe_allow_html=True)
-
-    cols = st.columns(len(nav_items))
-    for i, (icon, label, key) in enumerate(nav_items):
-        with cols[i]:
-            btn_label = f"{icon} {label}"
-            if st.button(btn_label, key=f"mnav_{key}", use_container_width=True):
-                if key == "logout":
-                    for k in list(st.session_state.keys()):
-                        del st.session_state[k]
-                    st.rerun()
-                else:
-                    st.session_state["page"] = key
-                    st.session_state["selected_order_id"] = None
-                    st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════
@@ -893,7 +478,6 @@ def _send_overdue_alerts(data: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_dashboard() -> None:
-    render_mobile_nav()
     data         = _app_data()
     user         = st.session_state["user"]
     orders       = get_orders_for_user(data, user["username"])
@@ -904,34 +488,28 @@ def page_dashboard() -> None:
     annual_count = len(orders)  # todos los pedidos activos + completados (no cancelados)
 
     st.markdown(
-        f'<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;">'
-        f'<div>'
-        f'  <div class="section-header" style="margin-bottom:0;">Tablero de Pedidos</div>'
-        f'</div>'
-        f'<span style="font-size:10px;letter-spacing:2px;color:rgba(180,210,255,.4);'
-        f'font-family:Rajdhani,sans-serif;text-transform:uppercase;'
-        f'padding:5px 12px;border:1px solid rgba(100,150,255,.18);border-radius:6px;'
-        f'background:rgba(13,43,110,.35);">{datetime.today().strftime("%d/%m/%Y %H:%M")}</span>'
+        f'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+        f'<div class="section-header" style="margin-bottom:0;">📊 Tablero de Pedidos</div>'
+        f'<span style="font-size:.82rem;color:#8592A3;">Actualizado: {datetime.today().strftime("%d/%m/%Y %H:%M")}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    _kpi(c1, str(len(active)),    "Pedidos Activos",   "#3b82f6")
-    _kpi(c2, str(len(completed)), "Completados",        "#22c55e")
-    _kpi(c3, str(annual_count),   f"Pedidos {year}",   "#a78bfa")
+    _kpi(c1, str(len(active)),    "Pedidos Activos",   "#0D2B6E")
+    _kpi(c2, str(len(completed)), "Completados",        "#059669")
+    _kpi(c3, str(annual_count),   f"Pedidos {year}",   "#7C3AED")
     _kpi(c4, str(sem["red"]),     "Actividades Venc.",  "#C41E2E")
-    _kpi(c5, str(sem["yellow"]),  "En Riesgo",          "#f59e0b")
+    _kpi(c5, str(sem["yellow"]),  "En Riesgo",          "#D97706")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     if sem["red"] > 0:
         st.markdown(
-            f'<div style="background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.30);'
-            f'border-radius:10px;padding:12px 18px;margin-bottom:16px;'
-            f'display:flex;align-items:center;gap:10px;">'
+            f'<div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;'
+            f'padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">'
             f'{_sem_dot("red")}'
-            f'<span style="color:#fca5a5;font-weight:600;font-size:.88rem;font-family:Rajdhani,sans-serif;">'
+            f'<span style="color:#991B1B;font-weight:700;font-size:.88rem;">'
             f'{sem["red"]} actividad(es) vencida(s). Usa "Enviar alertas" en el menú lateral.</span>'
             f'</div>',
             unsafe_allow_html=True,
@@ -939,7 +517,7 @@ def page_dashboard() -> None:
 
     my_tasks = get_my_pending_activities(data, user["username"])
     if my_tasks:
-        st.markdown('<div class="section-header" style="font-size:1.2rem;">Mis Tareas Activas</div>',
+        st.markdown('<div class="section-header" style="font-size:1.1rem;">🔔 Mis tareas activas</div>',
                     unsafe_allow_html=True)
         for t in my_tasks:
             sem_color = get_semaphore(t)
@@ -1024,7 +602,6 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
-    render_mobile_nav()
     data     = _app_data()
     user     = st.session_state["user"]
     order_id = st.session_state.get("selected_order_id")
@@ -1067,29 +644,28 @@ def page_activities() -> None:
         sem_counts[c] = sem_counts.get(c, 0) + 1
 
     st.markdown(
-        f'<div style="background:rgba(13,43,110,.55);border-radius:12px;padding:20px 24px;'
-        f'margin-bottom:18px;border:1px solid rgba(100,150,255,.20);border-top:3px solid #C41E2E;'
-        f'backdrop-filter:blur(8px);">'
+        f'<div style="background:#fff;border-radius:12px;padding:20px 24px;'
+        f'margin-bottom:18px;box-shadow:0 1px 6px rgba(13,43,110,.10);border-top:4px solid #0D2B6E;">'
         f'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
         f'<div>'
-        f'  <div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.5rem;letter-spacing:3px;color:#fff;">'
-        f'  {order["order_number"]}</div>'
-        f'  <div style="font-size:.84rem;color:rgba(180,210,255,.65);margin-top:3px;">'
+        f'  <div style="font-family:\'Barlow Condensed\',sans-serif;font-size:1.5rem;font-weight:800;color:#0D2B6E;">'
+        f'  📋 {order["order_number"]}</div>'
+        f'  <div style="font-size:.85rem;color:#4B5563;margin-top:3px;">'
         f'  {order["motor_model"]} &nbsp;·&nbsp; {order["quantity"]} unidades &nbsp;·&nbsp; {order["supplier"]}</div>'
         f'</div>'
         f'<div style="text-align:right;">{_badge(order["status"])}'
-        f'  <div style="font-size:.76rem;color:rgba(180,210,255,.45);margin-top:4px;">Creado: {order["created_at"]}</div>'
+        f'  <div style="font-size:.78rem;color:#8592A3;margin-top:4px;">Creado: {order["created_at"]}</div>'
         f'</div></div>'
         f'<div style="margin-top:14px;">{_progress_bar(prog)}</div>'
-        f'<div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;">'
-        f'  {_sem_dot("green")}<span style="font-size:.8rem;color:rgba(180,210,255,.7);">{sem_counts["green"]} en tiempo</span>'
-        f'  {_sem_dot("yellow")}<span style="font-size:.8rem;color:rgba(180,210,255,.7);">{sem_counts["yellow"]} en riesgo</span>'
-        f'  {_sem_dot("red")}<span style="font-size:.8rem;color:rgba(180,210,255,.7);">{sem_counts["red"]} vencidas</span>'
+        f'<div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;">'
+        f'  {_sem_dot("green")}<span style="font-size:.8rem;">{sem_counts["green"]} en tiempo</span>'
+        f'  {_sem_dot("yellow")}<span style="font-size:.8rem;">{sem_counts["yellow"]} en riesgo</span>'
+        f'  {_sem_dot("red")}<span style="font-size:.8rem;">{sem_counts["red"]} vencidas</span>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="section-header">Actividades del Proceso (19)</div>',
+    st.markdown('<div class="section-header">🔢 Actividades del Proceso (19)</div>',
                 unsafe_allow_html=True)
 
     current_phase = None
@@ -1195,7 +771,6 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
 # ══════════════════════════════════════════════════════════
 
 def page_new_order() -> None:
-    render_mobile_nav()
     user = st.session_state["user"]
     if not user.get("can_create_orders"):
         st.error("⛔ Acceso restringido. Solo David González puede crear nuevos pedidos.")
@@ -1206,19 +781,16 @@ def page_new_order() -> None:
     count = len([o for o in data["orders"]
                  if o.get("year") == year and o.get("status") != "cancelled"])
 
-    st.markdown('<div class="section-header">Registrar Nuevo Pedido de Motores</div>',
+    st.markdown('<div class="section-header">➕ Registrar Nuevo Pedido de Motores</div>',
                 unsafe_allow_html=True)
 
     remaining = MAX_ANNUAL_ORDERS - count
-    color_bar = "#22c55e" if remaining > 5 else "#f59e0b" if remaining > 2 else "#ef4444"
+    color_bar = "#22C55E" if remaining > 5 else "#F59E0B" if remaining > 2 else "#EF4444"
     st.markdown(
-        f'<div style="background:rgba(13,43,110,.50);border-radius:10px;padding:14px 20px;'
-        f'margin-bottom:20px;border:1px solid rgba(100,150,255,.18);'
-        f'border-left:4px solid {color_bar};backdrop-filter:blur(6px);">'
-        f'<span style="font-family:\'Rajdhani\',sans-serif;font-weight:700;'
-        f'letter-spacing:1px;color:{color_bar};">Pedidos {year}: {count} / {MAX_ANNUAL_ORDERS}</span>'
-        f'<span style="font-size:.8rem;color:rgba(180,210,255,.5);margin-left:12px;">'
-        f'Disponibles: {remaining}</span>'
+        f'<div style="background:#fff;border-radius:10px;padding:16px 20px;'
+        f'margin-bottom:20px;box-shadow:0 1px 4px rgba(13,43,110,.08);'
+        f'border-left:4px solid {color_bar};">'
+        f'<span style="font-weight:700;color:{color_bar};">Pedidos {year}: {count}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
