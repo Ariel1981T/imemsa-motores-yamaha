@@ -14,7 +14,7 @@ st.set_page_config(
     page_title="IMEMSA · Motores Yamaha",
     page_icon="⚓",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded",   # "expanded" en cada carga de página
 )
 
 from utils.auth         import verify_login
@@ -117,11 +117,28 @@ def inject_css() -> None:
     .corner-bl { bottom:14px; left:14px;  border-bottom:2px solid #C41E2E; border-left:2px solid #C41E2E; }
     .corner-br { bottom:14px; right:14px; border-bottom:2px solid #C41E2E; border-right:2px solid #C41E2E; }
 
-    /* ── SIDEBAR ── */
+    /* ── SIDEBAR — siempre visible, nunca colapsar ── */
     [data-testid="stSidebar"] {
         background: rgba(4,12,42,0.92) !important;
         border-right: 1px solid rgba(100,150,255,0.12) !important;
         backdrop-filter: blur(10px) !important;
+        display: flex !important;
+        visibility: visible !important;
+        transform: translateX(0) !important;
+        min-width: 244px !important;
+        width: 244px !important;
+        margin-left: 0 !important;
+        left: 0 !important;
+    }
+    /* Ocultar botón de colapso dentro del sidebar — el usuario nunca lo cierra */
+    [data-testid="stSidebarCollapseButton"],
+    button[title="Close sidebar"],
+    button[aria-label="Close sidebar"] { display: none !important; }
+    /* Ocultar el control de reabrir — tampoco se necesita */
+    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+    /* Asegurar que el contenido principal respete el sidebar */
+    section.main > div.block-container {
+        margin-left: 0 !important;
     }
     [data-testid="stSidebar"] * { color: #E8EDF7 !important; }
     [data-testid="stSidebar"] .sidebar-divider {
@@ -697,6 +714,9 @@ def page_login() -> None:
 def render_sidebar() -> str:
     user = st.session_state["user"]
     page = st.session_state.get("page", "dashboard")
+
+    # Forzar sidebar siempre expandido en cada rerun
+    st.session_state["sidebar_state"] = "expanded"
 
     with st.sidebar:
         logo_sidebar()
