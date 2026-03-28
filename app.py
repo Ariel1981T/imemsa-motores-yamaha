@@ -197,10 +197,35 @@ def inject_css() -> None:
     [data-testid="stTextInput"] input::placeholder,
     [data-testid="stTextArea"] textarea::placeholder { color: #9CA3AF !important; }
 
-    [data-testid="stForm"] label,
+    /* Selectbox — texto negro en el campo seleccionado */
+    [data-testid="stSelectbox"] > div > div {
+        background: #FFFFFF !important;
+        border: 1.5px solid #D1D9E8 !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stSelectbox"] span,
+    [data-testid="stSelectbox"] p,
+    [data-testid="stSelectbox"] div[data-baseweb="select"] span {
+        color: #1F2937 !important;
+    }
+    /* Labels de selectbox y widgets fuera del sidebar */
     .main [data-testid="stWidgetLabel"] p,
     .main [data-testid="stWidgetLabel"] span,
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stWidgetLabel"] span,
+    [data-testid="stForm"] label,
     .main label p, .main label span { color: #1F2937 !important; }
+
+    /* Tabs — texto oscuro (no heredar blanco del sidebar) */
+    [data-testid="stTabs"] [data-baseweb="tab"] p,
+    [data-testid="stTabs"] [data-baseweb="tab"] span,
+    [data-testid="stTabs"] button[role="tab"] p,
+    [data-testid="stTabs"] button[role="tab"] span,
+    [data-testid="stTabs"] button[role="tab"] { color: #0D2B6E !important; }
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: #0D2B6E !important; font-weight: 700 !important;
+        border-bottom: 3px solid #C41E2E !important;
+    }
 
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] span,
@@ -965,6 +990,9 @@ def page_activities() -> None:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
+        else:
+            st.button("⬇️  Exportar a Excel", disabled=True, use_container_width=True,
+                      help="Instala openpyxl para habilitar: pip install openpyxl")
 
     st.markdown('<div class="section-header">🔢 Actividades del Proceso (19)</div>',
                 unsafe_allow_html=True)
