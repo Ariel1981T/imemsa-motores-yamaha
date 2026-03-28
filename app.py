@@ -117,28 +117,31 @@ def inject_css() -> None:
     .corner-bl { bottom:14px; left:14px;  border-bottom:2px solid #C41E2E; border-left:2px solid #C41E2E; }
     .corner-br { bottom:14px; right:14px; border-bottom:2px solid #C41E2E; border-right:2px solid #C41E2E; }
 
-    /* ── SIDEBAR — siempre visible, nunca colapsar ── */
+    /* ── SIDEBAR — comportamiento normal, botón toggle siempre visible ── */
     [data-testid="stSidebar"] {
         background: rgba(4,12,42,0.92) !important;
         border-right: 1px solid rgba(100,150,255,0.12) !important;
         backdrop-filter: blur(10px) !important;
-        display: flex !important;
-        visibility: visible !important;
-        transform: translateX(0) !important;
-        min-width: 244px !important;
-        width: 244px !important;
-        margin-left: 0 !important;
-        left: 0 !important;
     }
-    /* Ocultar botón de colapso dentro del sidebar — el usuario nunca lo cierra */
-    [data-testid="stSidebarCollapseButton"],
-    button[title="Close sidebar"],
-    button[aria-label="Close sidebar"] { display: none !important; }
-    /* Ocultar el control de reabrir — tampoco se necesita */
-    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
-    /* Asegurar que el contenido principal respete el sidebar */
-    section.main > div.block-container {
-        margin-left: 0 !important;
+    /* Botón de cerrar sidebar — visible y estilizado */
+    [data-testid="stSidebarCollapseButton"] {
+        background: rgba(196,30,46,0.20) !important;
+        border-radius: 6px !important;
+    }
+    [data-testid="stSidebarCollapseButton"] svg { color: #ffffff !important; }
+    /* Botón de abrir sidebar (cuando está cerrado) — bien visible en móvil */
+    [data-testid="stSidebarCollapsedControl"] {
+        background: rgba(4,12,42,0.90) !important;
+        border: 1px solid rgba(196,30,46,0.50) !important;
+        border-radius: 0 8px 8px 0 !important;
+        visibility: visible !important;
+        display: flex !important;
+        z-index: 999 !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] svg { color: #ffffff !important; }
+    [data-testid="stSidebarCollapsedControl"] button {
+        background: transparent !important;
+        border: none !important;
     }
     [data-testid="stSidebar"] * { color: #E8EDF7 !important; }
     [data-testid="stSidebar"] .sidebar-divider {
@@ -714,9 +717,6 @@ def page_login() -> None:
 def render_sidebar() -> str:
     user = st.session_state["user"]
     page = st.session_state.get("page", "dashboard")
-
-    # Forzar sidebar siempre expandido en cada rerun
-    st.session_state["sidebar_state"] = "expanded"
 
     with st.sidebar:
         logo_sidebar()
