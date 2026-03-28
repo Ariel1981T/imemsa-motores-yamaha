@@ -613,7 +613,7 @@ def page_dashboard() -> None:
     _kpi(c1, str(len(active)),    "Pedidos Activos",   "#0D2B6E")
     _kpi(c2, str(len(completed)), "Completados",        "#059669")
     _kpi(c3, str(annual_count),   f"Pedidos {year}",   "#7C3AED")
-    _kpi(c4, str(sem["red"]),     "Actividades Venc.",  "#C41E2E")
+    _kpi(c4, str(sem["red"]),     "Actividades Vencidas",  "#C41E2E")
     _kpi(c5, str(sem["yellow"]),  "En Riesgo",          "#D97706")
 
     st.markdown("<br>", unsafe_allow_html=True)
