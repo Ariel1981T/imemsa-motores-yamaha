@@ -318,48 +318,216 @@ def _act_row_class(status: str) -> str:
 # ══════════════════════════════════════════════════════════
 
 def page_login() -> None:
+    # ── CSS cinematográfico IMEMSA v2.0 ──────────────────────────────────────
     st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;600;700&display=swap');
+
+    /* Fondo principal */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg,#0D2B6E 0%,#1A3F8F 55%,#16387A 100%) !important;
+        background: radial-gradient(ellipse 90% 70% at 50% -5%,
+            #1a3a8f 0%, #0a1d5e 28%, #020b22 65%) !important;
+        min-height: 100vh;
     }
+    /* Ocultar header y footer nativos */
+    #MainMenu, footer, header { visibility: hidden; }
+    .main .block-container { padding-top: 0 !important; }
+
+    /* Scanlines overlay */
+    [data-testid="stAppViewContainer"]::before {
+        content: '';
+        position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background: repeating-linear-gradient(
+            0deg, transparent, transparent 3px,
+            rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
+        );
+    }
+
+    /* Quitar fondos blancos de contenedores internos */
     [data-testid="stAppViewContainer"] [data-testid="stVerticalBlock"],
-    [data-testid="stAppViewContainer"] [data-testid="column"] > div:first-child {
-        background: transparent !important; box-shadow: none !important;
-    }
+    [data-testid="stAppViewContainer"] [data-testid="column"] > div:first-child,
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: transparent !important; border: none !important; box-shadow: none !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
     }
+
+    /* Inputs */
     .login-col [data-testid="stTextInput"] input {
-        background: rgba(255,255,255,.12) !important;
-        border: 1.5px solid rgba(255,255,255,.30) !important;
-        color: #fff !important; border-radius: 8px !important;
+        background: rgba(255,255,255,0.93) !important;
+        border: none !important;
+        border-radius: 7px !important;
+        color: #1a2a5e !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-size: 15px !important;
+        transition: box-shadow 0.25s !important;
     }
-    .login-col [data-testid="stTextInput"] input::placeholder { color: rgba(255,255,255,.45) !important; }
-    .login-col [data-testid="stTextInput"] label { color: rgba(255,255,255,.85) !important; font-weight:600 !important; }
+    .login-col [data-testid="stTextInput"] input:focus {
+        box-shadow: 0 0 0 2px #C41E2E !important;
+    }
+    .login-col [data-testid="stTextInput"] input::placeholder {
+        color: #8899bb !important;
+    }
+    .login-col [data-testid="stTextInput"] label {
+        color: #c8d8f0 !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-size: 12px !important;
+        letter-spacing: 3px !important;
+        text-transform: uppercase !important;
+    }
+
+    /* Botón submit */
     .login-col [data-testid="stFormSubmitButton"] button {
-        background: #C41E2E !important; border: none !important; color: #fff !important;
-        font-size: 1rem !important; font-weight: 700 !important;
-        border-radius: 8px !important; padding: 12px !important; transition: background .2s !important;
+        width: 100% !important;
+        background: linear-gradient(135deg, #d42030 0%, #a8151f 100%) !important;
+        border: none !important;
+        border-radius: 8px !important;
+        color: #ffffff !important;
+        font-family: 'Bebas Neue', sans-serif !important;
+        font-size: 20px !important;
+        letter-spacing: 5px !important;
+        padding: 13px !important;
+        box-shadow: 0 4px 20px rgba(196,30,46,0.55) !important;
+        transition: all 0.25s !important;
     }
-    .login-col [data-testid="stFormSubmitButton"] button:hover { background: #0D2B6E !important; }
+    .login-col [data-testid="stFormSubmitButton"] button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 28px rgba(196,30,46,0.7) !important;
+    }
+
+    /* Mensaje de error */
+    .login-col [data-testid="stAlert"] {
+        background: rgba(196,30,46,0.12) !important;
+        border: 1px solid rgba(196,30,46,0.35) !important;
+        border-radius: 8px !important;
+        color: #f07080 !important;
+    }
+
+    /* Esquinas decorativas */
+    .corner-tl, .corner-tr, .corner-bl, .corner-br {
+        position: fixed; width: 40px; height: 40px; z-index: 100; pointer-events: none;
+    }
+    .corner-tl { top:16px; left:16px;  border-top:2px solid #C41E2E; border-left:2px solid #C41E2E; }
+    .corner-tr { top:16px; right:16px; border-top:2px solid #C41E2E; border-right:2px solid #C41E2E; }
+    .corner-bl { bottom:16px; left:16px;  border-bottom:2px solid #C41E2E; border-left:2px solid #C41E2E; }
+    .corner-br { bottom:16px; right:16px; border-bottom:2px solid #C41E2E; border-right:2px solid #C41E2E; }
     </style>
+
+    <!-- Esquinas decorativas + partículas animadas -->
+    <div class="corner-tl"></div>
+    <div class="corner-tr"></div>
+    <div class="corner-bl"></div>
+    <div class="corner-br"></div>
+
+    <style>
+    .bubble {
+        position: fixed; border-radius: 50%;
+        background: rgba(180,210,255,0.18);
+        border: 1px solid rgba(180,210,255,0.28);
+        animation: rise-bubble linear infinite;
+        pointer-events: none; z-index: 0;
+    }
+    @keyframes rise-bubble {
+        0%   { transform: translateY(0);      opacity: 0.7; }
+        80%  { opacity: 0.15; }
+        100% { transform: translateY(-110vh); opacity: 0; }
+    }
+    </style>
+    <script>
+    (function(){
+        if(document.getElementById('imemsa-bubbles')) return;
+        var c=document.createElement('div'); c.id='imemsa-bubbles';
+        for(var i=0;i<18;i++){
+            var b=document.createElement('div'); b.className='bubble';
+            var s=3+Math.random()*9;
+            b.style.cssText='width:'+s+'px;height:'+s+'px;left:'+(Math.random()*100)+'%;'
+                +'bottom:-20px;animation-duration:'+(7+Math.random()*14)+'s;'
+                +'animation-delay:'+(-Math.random()*20)+'s;';
+            c.appendChild(b);
+        }
+        document.body.appendChild(c);
+    })();
+    </script>
+
+    <!-- Label versión -->
+    <div style="position:fixed;bottom:18px;right:22px;z-index:100;
+        font-size:9px;letter-spacing:3px;color:rgba(200,216,240,0.3);
+        text-transform:uppercase;font-family:'Rajdhani',sans-serif;">
+        Sistema v2.0 · 2026
+    </div>
     """, unsafe_allow_html=True)
+
+    # ── Espaciado superior ────────────────────────────────────────────────────
+    st.markdown("<div style='height:5vh'></div>", unsafe_allow_html=True)
 
     col_l, col_c, col_r = st.columns([1, 1.1, 1])
     with col_c:
         st.markdown('<div class="login-col">', unsafe_allow_html=True)
-        logo_login()
-        st.markdown(
-            '<p style="text-align:center;color:rgba(255,255,255,.82);font-size:.88rem;'
-            'margin-bottom:28px;margin-top:4px;">Sistema de Seguimiento · Proceso Transversal de Compra de Motores</p>',
-            unsafe_allow_html=True,
-        )
-        with st.form("login_form"):
-            username  = st.text_input("👤  Usuario", placeholder="Ej. dgonzalez")
-            password  = st.text_input("🔒  Contraseña", type="password")
-            submitted = st.form_submit_button("Ingresar al sistema", use_container_width=True, type="primary")
 
+        # ── Logo block ────────────────────────────────────────────────────────
+        st.markdown("""
+        <div style="
+            background: rgba(13,43,110,0.60);
+            border: 1px solid rgba(100,150,255,0.20);
+            border-radius: 12px;
+            padding: 22px 24px 18px;
+            text-align: center;
+            backdrop-filter: blur(8px);
+            margin-bottom: 20px;
+        ">
+            <div style="
+                font-family: 'Bebas Neue', sans-serif;
+                font-size: 46px; letter-spacing: 6px;
+                color: #ffffff;
+                text-shadow: 0 0 30px rgba(100,150,255,0.5);
+                line-height: 1;
+            ">IMEMSA</div>
+            <div style="
+                width: 200px; height: 2px; margin: 10px auto;
+                background: linear-gradient(to right, transparent, #C41E2E 30%, #C41E2E 70%, transparent);
+                box-shadow: 0 0 10px rgba(196,30,46,0.55);
+            "></div>
+            <div style="
+                font-size: 11px; letter-spacing: 6px;
+                color: #c8d8f0; opacity: 0.7; text-transform: uppercase;
+                font-family: 'Rajdhani', sans-serif;
+            ">Motores Yamaha</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Subtítulo ─────────────────────────────────────────────────────────
+        st.markdown("""
+        <div style="text-align:center; margin-bottom:18px;">
+            <p style="font-size:14px; letter-spacing:1px;
+                color:#c8d8f0; opacity:.85; line-height:1.6;
+                font-family:'Rajdhani',sans-serif;">
+                Sistema de Seguimiento ·
+                <span style="color:#ffffff;font-weight:600;">Proceso Transversal</span><br>
+                de Compra de Motores
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Form card ─────────────────────────────────────────────────────────
+        st.markdown("""
+        <div style="
+            background: rgba(13,43,110,0.45);
+            border: 1px solid rgba(100,150,255,0.18);
+            border-radius: 12px;
+            padding: 28px 28px 8px;
+            backdrop-filter: blur(10px);
+        ">
+        """, unsafe_allow_html=True)
+
+        with st.form("login_form"):
+            username  = st.text_input("👤  Usuario",    placeholder="Ej. dgonzalez")
+            password  = st.text_input("🔒  Contraseña", type="password")
+            submitted = st.form_submit_button("Ingresar al Sistema",
+                                              use_container_width=True, type="primary")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # ── Lógica de autenticación (sin cambios) ─────────────────────────────
         if submitted:
             ok, user_info = verify_login(username, password)
             if ok:
@@ -370,8 +538,10 @@ def page_login() -> None:
             else:
                 st.error("Usuario o contraseña incorrectos.")
 
+        # ── Footer ────────────────────────────────────────────────────────────
         st.markdown(
-            '<p style="text-align:center;color:rgba(255,255,255,.40);font-size:.74rem;margin-top:24px;">'
+            '<p style="text-align:center;color:rgba(255,255,255,.30);'
+            'font-size:.72rem;margin-top:20px;font-family:\'Rajdhani\',sans-serif;">'
             '© 2026 IMEMSA — Uso interno. Acceso restringido.</p>',
             unsafe_allow_html=True,
         )
