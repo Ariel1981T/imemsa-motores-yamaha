@@ -75,7 +75,17 @@ def inject_css() -> None:
             #1a3a8f 0%, #0a1d5e 30%, #020b22 68%) !important;
         min-height: 100vh;
     }
-    #MainMenu, footer, header { visibility: hidden; }
+    #MainMenu, footer { visibility: hidden; }
+    /* NO ocultar header — contiene el botón toggle del sidebar */
+    [data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
+    [data-testid="stToolbar"] { visibility: hidden; }
+    /* Botón de reabrir sidebar cuando está colapsado */
+    [data-testid="stSidebarCollapsedControl"] {
+        background: rgba(4,12,42,0.85) !important;
+        border: 1px solid rgba(100,150,255,.15) !important;
+        border-radius: 0 8px 8px 0 !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] svg { color: #c8d8f0 !important; }
 
     /* Scanlines */
     [data-testid="stAppViewContainer"]::before {
@@ -456,8 +466,9 @@ def page_login() -> None:
             #1a3a8f 0%, #0a1d5e 28%, #020b22 65%) !important;
         min-height: 100vh;
     }
-    /* Ocultar header y footer nativos */
-    #MainMenu, footer, header { visibility: hidden; }
+    #MainMenu, footer { visibility: hidden; }
+    [data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
+    [data-testid="stToolbar"] { visibility: hidden; }
     .main .block-container { padding-top: 0 !important; }
 
     /* Scanlines overlay */
