@@ -75,17 +75,7 @@ def inject_css() -> None:
             #1a3a8f 0%, #0a1d5e 30%, #020b22 68%) !important;
         min-height: 100vh;
     }
-    #MainMenu, footer { visibility: hidden; }
-    /* NO ocultar header — contiene el botón toggle del sidebar */
-    [data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
-    [data-testid="stToolbar"] { visibility: hidden; }
-    /* Botón de reabrir sidebar cuando está colapsado */
-    [data-testid="stSidebarCollapsedControl"] {
-        background: rgba(4,12,42,0.85) !important;
-        border: 1px solid rgba(100,150,255,.15) !important;
-        border-radius: 0 8px 8px 0 !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] svg { color: #c8d8f0 !important; }
+    #MainMenu, footer, header { visibility: hidden; }
 
     /* Scanlines */
     [data-testid="stAppViewContainer"]::before {
@@ -363,6 +353,48 @@ def inject_css() -> None:
         border-radius: 6px !important;
     }
 
+    /* ── BARRA NAV MÓVIL — siempre visible ── */
+    .mobile-nav {
+        display: none;
+        background: rgba(4,12,42,0.95);
+        border-bottom: 1px solid rgba(100,150,255,.15);
+        border-radius: 0 0 10px 10px;
+        padding: 8px 12px;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        backdrop-filter: blur(10px);
+    }
+    @media (max-width: 768px) {
+        .mobile-nav { display: flex !important; }
+        [data-testid="stSidebar"] { display: none !important; }
+    }
+    .mnav-btn {
+        flex: 1; min-width: 100px;
+        padding: 8px 10px;
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(100,150,255,.2);
+        border-radius: 7px;
+        color: #c8d8f0;
+        font-family: "Rajdhani", sans-serif;
+        font-size: 13px; font-weight: 600; letter-spacing: 1px;
+        text-align: center; cursor: pointer;
+        transition: all .2s;
+    }
+    .mnav-btn:hover, .mnav-btn.active {
+        background: rgba(196,30,46,.20);
+        border-color: rgba(196,30,46,.45);
+        color: #ffffff;
+    }
+    .mnav-logo {
+        width: 100%;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 20px; letter-spacing: 5px; color: #fff;
+        padding: 2px 4px 6px;
+        border-bottom: 1px solid rgba(196,30,46,.4);
+        margin-bottom: 4px;
+    }
+
     /* Versión label */
     .ver-label {
         position: fixed; bottom: 16px; right: 20px; z-index: 200;
@@ -486,9 +518,7 @@ def page_login() -> None:
             #1a3a8f 0%, #0a1d5e 28%, #020b22 65%) !important;
         min-height: 100vh;
     }
-    #MainMenu, footer { visibility: hidden; }
-    [data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
-    [data-testid="stToolbar"] { visibility: hidden; }
+    #MainMenu, footer, header { visibility: hidden; }
     .main .block-container { padding-top: 0 !important; }
 
     /* Scanlines overlay */
@@ -711,6 +741,59 @@ def page_login() -> None:
 
 
 # ══════════════════════════════════════════════════════════
+#  NAV MÓVIL (visible solo en pantallas pequeñas)
+# ══════════════════════════════════════════════════════════
+
+def render_mobile_nav() -> None:
+    """Barra de navegación superior para móvil — se muestra solo en pantallas ≤768px."""
+    user = st.session_state.get("user", {})
+    page = st.session_state.get("page", "dashboard")
+
+    nav_items = [
+        ("📊", "Tablero", "dashboard"),
+        ("📋", "Actividades", "activities"),
+    ]
+    if user.get("can_create_orders"):
+        nav_items.append(("➕", "Nuevo Pedido", "new_order"))
+    nav_items.append(("🚪", "Salir", "logout"))
+
+    active_map = {k: "active" if page == k else "" for _, _, k in nav_items}
+
+    # Barra visual
+    logo_html = '<div class="mnav-logo">IMEMSA &middot; Motores Yamaha</div>'
+    st.markdown('<div class="mobile-nav">' + logo_html + '</div>', unsafe_allow_html=True)
+
+    # Botones de navegación reales con estilo
+    st.markdown("""
+    <style>
+    @media (max-width: 768px) {
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div > div > button {
+            background: rgba(255,255,255,.06) !important;
+            border: 1px solid rgba(100,150,255,.2) !important;
+            color: #c8d8f0 !important;
+            border-radius: 7px !important;
+            font-family: "Rajdhani", sans-serif !important;
+            font-weight: 600 !important; letter-spacing: 1px !important;
+        }
+    }
+    </style>""", unsafe_allow_html=True)
+
+    cols = st.columns(len(nav_items))
+    for i, (icon, label, key) in enumerate(nav_items):
+        with cols[i]:
+            btn_label = f"{icon} {label}"
+            if st.button(btn_label, key=f"mnav_{key}", use_container_width=True):
+                if key == "logout":
+                    for k in list(st.session_state.keys()):
+                        del st.session_state[k]
+                    st.rerun()
+                else:
+                    st.session_state["page"] = key
+                    st.session_state["selected_order_id"] = None
+                    st.rerun()
+
+
+# ══════════════════════════════════════════════════════════
 #  SIDEBAR NAVEGACIÓN
 # ══════════════════════════════════════════════════════════
 
@@ -810,6 +893,7 @@ def _send_overdue_alerts(data: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_dashboard() -> None:
+    render_mobile_nav()
     data         = _app_data()
     user         = st.session_state["user"]
     orders       = get_orders_for_user(data, user["username"])
@@ -940,6 +1024,7 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
+    render_mobile_nav()
     data     = _app_data()
     user     = st.session_state["user"]
     order_id = st.session_state.get("selected_order_id")
@@ -1110,6 +1195,7 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
 # ══════════════════════════════════════════════════════════
 
 def page_new_order() -> None:
+    render_mobile_nav()
     user = st.session_state["user"]
     if not user.get("can_create_orders"):
         st.error("⛔ Acceso restringido. Solo David González puede crear nuevos pedidos.")
