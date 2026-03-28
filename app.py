@@ -352,8 +352,21 @@ def page_login() -> None:
         box-shadow: none !important;
     }
 
+    /* ── FIX 1: Labels "Usuario" y "Contraseña" en blanco ── */
+    [data-testid="stTextInput"] label,
+    [data-testid="stTextInput"] label p,
+    [data-testid="stTextInput"] label span,
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stWidgetLabel"] span {
+        color: #ffffff !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-size: 13px !important;
+        letter-spacing: 3px !important;
+        text-transform: uppercase !important;
+    }
+
     /* Inputs */
-    .login-col [data-testid="stTextInput"] input {
+    [data-testid="stTextInput"] input {
         background: rgba(255,255,255,0.93) !important;
         border: none !important;
         border-radius: 7px !important;
@@ -362,22 +375,24 @@ def page_login() -> None:
         font-size: 15px !important;
         transition: box-shadow 0.25s !important;
     }
-    .login-col [data-testid="stTextInput"] input:focus {
+    [data-testid="stTextInput"] input:focus {
         box-shadow: 0 0 0 2px #C41E2E !important;
     }
-    .login-col [data-testid="stTextInput"] input::placeholder {
+    [data-testid="stTextInput"] input::placeholder {
         color: #8899bb !important;
     }
-    .login-col [data-testid="stTextInput"] label {
-        color: #c8d8f0 !important;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-size: 12px !important;
-        letter-spacing: 3px !important;
-        text-transform: uppercase !important;
+
+    /* ── FIX 2: Estilo del form container via CSS (sin div wrapper vacío) ── */
+    [data-testid="stForm"] {
+        background: rgba(13,43,110,0.45) !important;
+        border: 1px solid rgba(100,150,255,0.18) !important;
+        border-radius: 12px !important;
+        padding: 10px 14px !important;
+        backdrop-filter: blur(10px) !important;
     }
 
     /* Botón submit */
-    .login-col [data-testid="stFormSubmitButton"] button {
+    [data-testid="stFormSubmitButton"] button {
         width: 100% !important;
         background: linear-gradient(135deg, #d42030 0%, #a8151f 100%) !important;
         border: none !important;
@@ -390,13 +405,13 @@ def page_login() -> None:
         box-shadow: 0 4px 20px rgba(196,30,46,0.55) !important;
         transition: all 0.25s !important;
     }
-    .login-col [data-testid="stFormSubmitButton"] button:hover {
+    [data-testid="stFormSubmitButton"] button:hover {
         transform: translateY(-2px) !important;
         box-shadow: 0 6px 28px rgba(196,30,46,0.7) !important;
     }
 
     /* Mensaje de error */
-    .login-col [data-testid="stAlert"] {
+    [data-testid="stAlert"] {
         background: rgba(196,30,46,0.12) !important;
         border: 1px solid rgba(196,30,46,0.35) !important;
         border-radius: 8px !important;
@@ -411,43 +426,48 @@ def page_login() -> None:
     .corner-tr { top:16px; right:16px; border-top:2px solid #C41E2E; border-right:2px solid #C41E2E; }
     .corner-bl { bottom:16px; left:16px;  border-bottom:2px solid #C41E2E; border-left:2px solid #C41E2E; }
     .corner-br { bottom:16px; right:16px; border-bottom:2px solid #C41E2E; border-right:2px solid #C41E2E; }
+
+    /* ── FIX 3: Burbujas en HTML puro (sin JS) ── */
+    @keyframes rise-bubble {
+        0%   { transform: translateY(0);      opacity: 0.65; }
+        80%  { opacity: 0.15; }
+        100% { transform: translateY(-105vh); opacity: 0; }
+    }
+    .bbl {
+        position: fixed; border-radius: 50%;
+        background: rgba(180,210,255,0.20);
+        border: 1px solid rgba(180,210,255,0.32);
+        animation: rise-bubble linear infinite;
+        pointer-events: none; z-index: 1;
+        bottom: -20px;
+    }
     </style>
 
-    <!-- Esquinas decorativas + partículas animadas -->
+    <!-- Esquinas decorativas -->
     <div class="corner-tl"></div>
     <div class="corner-tr"></div>
     <div class="corner-bl"></div>
     <div class="corner-br"></div>
 
-    <style>
-    .bubble {
-        position: fixed; border-radius: 50%;
-        background: rgba(180,210,255,0.18);
-        border: 1px solid rgba(180,210,255,0.28);
-        animation: rise-bubble linear infinite;
-        pointer-events: none; z-index: 0;
-    }
-    @keyframes rise-bubble {
-        0%   { transform: translateY(0);      opacity: 0.7; }
-        80%  { opacity: 0.15; }
-        100% { transform: translateY(-110vh); opacity: 0; }
-    }
-    </style>
-    <script>
-    (function(){
-        if(document.getElementById('imemsa-bubbles')) return;
-        var c=document.createElement('div'); c.id='imemsa-bubbles';
-        for(var i=0;i<18;i++){
-            var b=document.createElement('div'); b.className='bubble';
-            var s=3+Math.random()*9;
-            b.style.cssText='width:'+s+'px;height:'+s+'px;left:'+(Math.random()*100)+'%;'
-                +'bottom:-20px;animation-duration:'+(7+Math.random()*14)+'s;'
-                +'animation-delay:'+(-Math.random()*20)+'s;';
-            c.appendChild(b);
-        }
-        document.body.appendChild(c);
-    })();
-    </script>
+    <!-- FIX 3: Burbujas con HTML puro, sin JS -->
+    <div class="bbl" style="width:5px;height:5px;left:4%;animation-duration:9s;animation-delay:-2s;"></div>
+    <div class="bbl" style="width:8px;height:8px;left:10%;animation-duration:14s;animation-delay:-7s;"></div>
+    <div class="bbl" style="width:4px;height:4px;left:17%;animation-duration:11s;animation-delay:-1s;"></div>
+    <div class="bbl" style="width:10px;height:10px;left:24%;animation-duration:16s;animation-delay:-11s;"></div>
+    <div class="bbl" style="width:5px;height:5px;left:31%;animation-duration:8s;animation-delay:-4s;"></div>
+    <div class="bbl" style="width:7px;height:7px;left:38%;animation-duration:13s;animation-delay:-9s;"></div>
+    <div class="bbl" style="width:3px;height:3px;left:45%;animation-duration:10s;animation-delay:-0s;"></div>
+    <div class="bbl" style="width:9px;height:9px;left:52%;animation-duration:17s;animation-delay:-6s;"></div>
+    <div class="bbl" style="width:4px;height:4px;left:59%;animation-duration:12s;animation-delay:-13s;"></div>
+    <div class="bbl" style="width:6px;height:6px;left:66%;animation-duration:9s;animation-delay:-3s;"></div>
+    <div class="bbl" style="width:11px;height:11px;left:72%;animation-duration:15s;animation-delay:-8s;"></div>
+    <div class="bbl" style="width:4px;height:4px;left:79%;animation-duration:11s;animation-delay:-5s;"></div>
+    <div class="bbl" style="width:7px;height:7px;left:85%;animation-duration:13s;animation-delay:-10s;"></div>
+    <div class="bbl" style="width:5px;height:5px;left:91%;animation-duration:8s;animation-delay:-15s;"></div>
+    <div class="bbl" style="width:9px;height:9px;left:97%;animation-duration:16s;animation-delay:-2s;"></div>
+    <div class="bbl" style="width:3px;height:3px;left:13%;animation-duration:10s;animation-delay:-18s;"></div>
+    <div class="bbl" style="width:6px;height:6px;left:55%;animation-duration:12s;animation-delay:-16s;"></div>
+    <div class="bbl" style="width:8px;height:8px;left:42%;animation-duration:7s;animation-delay:-12s;"></div>
 
     <!-- Label versión -->
     <div style="position:fixed;bottom:18px;right:22px;z-index:100;
@@ -462,7 +482,6 @@ def page_login() -> None:
 
     col_l, col_c, col_r = st.columns([1, 1.1, 1])
     with col_c:
-        st.markdown('<div class="login-col">', unsafe_allow_html=True)
 
         # ── Logo block ────────────────────────────────────────────────────────
         st.markdown("""
@@ -495,37 +514,23 @@ def page_login() -> None:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Subtítulo ─────────────────────────────────────────────────────────
+        # ── Subtítulo (FIX 2: sin div wrapper que genera rectángulo) ─────────
         st.markdown("""
-        <div style="text-align:center; margin-bottom:18px;">
-            <p style="font-size:14px; letter-spacing:1px;
-                color:#c8d8f0; opacity:.85; line-height:1.6;
-                font-family:'Rajdhani',sans-serif;">
-                Sistema de Seguimiento ·
-                <span style="color:#ffffff;font-weight:600;">Proceso Transversal</span><br>
-                de Compra de Motores
-            </p>
-        </div>
+        <p style="text-align:center; margin-bottom:18px; font-size:14px;
+            letter-spacing:1px; color:#c8d8f0; line-height:1.6;
+            font-family:'Rajdhani',sans-serif;">
+            Sistema de Seguimiento ·
+            <span style="color:#ffffff;font-weight:600;">Proceso Transversal</span><br>
+            de Compra de Motores
+        </p>
         """, unsafe_allow_html=True)
 
-        # ── Form card ─────────────────────────────────────────────────────────
-        st.markdown("""
-        <div style="
-            background: rgba(13,43,110,0.45);
-            border: 1px solid rgba(100,150,255,0.18);
-            border-radius: 12px;
-            padding: 28px 28px 8px;
-            backdrop-filter: blur(10px);
-        ">
-        """, unsafe_allow_html=True)
-
+        # ── Form (FIX 2: sin st.markdown wrapper, estilo aplicado por CSS) ───
         with st.form("login_form"):
             username  = st.text_input("👤  Usuario",    placeholder="Ej. dgonzalez")
             password  = st.text_input("🔒  Contraseña", type="password")
             submitted = st.form_submit_button("Ingresar al Sistema",
                                               use_container_width=True, type="primary")
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
         # ── Lógica de autenticación (sin cambios) ─────────────────────────────
         if submitted:
@@ -545,7 +550,6 @@ def page_login() -> None:
             '© 2026 IMEMSA — Uso interno. Acceso restringido.</p>',
             unsafe_allow_html=True,
         )
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════
