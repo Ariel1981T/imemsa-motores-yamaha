@@ -54,7 +54,7 @@ USERS: dict[str, dict] = {
         "color": "#D97706",
     },
     "cmuniz": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Motor3s"),
         "name": "Claudia Muñiz",
         "role": "Líder Logística",
         "email": "cmuniz@imemsa.com.mx",
