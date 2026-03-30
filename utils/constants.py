@@ -18,7 +18,7 @@ def _h(pw: str) -> str:
 
 USERS: dict[str, dict] = {
     "dgonzalez": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Lf280606"),
         "name": "David González",
         "role": "Supervisor",
         "email": "dgonzalez@imemsa.com.mx",
