@@ -373,115 +373,121 @@ def _log_history(act: dict, username: str, action: str, detail: str = "") -> Non
 
 
 # ══════════════════════════════════════════════════════════
-#  GOOGLE DRIVE — GALERÍA DE EVIDENCIAS
+#  GALERÍA DE EVIDENCIAS — almacenada en Google Sheets
+#  Hoja: evidencias_data  (una fila por imagen)
+#  Columnas: order_id | act_id | filename | user | ts | thumb_b64
 # ══════════════════════════════════════════════════════════
 
-def _get_drive_client():
-    """Regresa cliente Google Drive autenticado con el mismo service account."""
-    import streamlit as st
-    from google.oauth2.service_account import Credentials
-    import googleapiclient.discovery as discovery
-    scopes = ["https://www.googleapis.com/auth/drive"]
-    creds  = Credentials.from_service_account_info(
-        dict(st.secrets["gcp_service_account"]), scopes=scopes
-    )
-    return discovery.build("drive", "v3", credentials=creds, cache_discovery=False)
-
-
-def _get_or_create_drive_folder(drive, folder_name: str = "IMEMSA_Evidencias") -> str:
-    """Retorna el folder_id de la carpeta compartida en Google Drive."""
-    # Carpeta IMEMSA_Evidencias compartida con el service account
-    return "11xiU70EVlNLBAUDD2XFflFvFKCvulaVD"
-
-
-def _upload_evidence_to_drive(
-    file_bytes: bytes,
-    file_name:  str,
-    order_number: str,
-    act_id: int,
-) -> tuple[str, str]:
+def _compress_image(file_bytes: bytes, file_name: str,
+                    max_width: int = 400, quality: int = 45) -> str:
     """
-    Sube la evidencia a Google Drive.
-    Retorna (file_id, view_url, thumb_url) o ("", "", "") si falla.
+    Comprime la imagen y la retorna como base64.
+    Retorna "" si falla o si no es imagen.
+    """
+    ext = file_name.lower().split(".")[-1]
+    if ext not in ("png", "jpg", "jpeg"):
+        return ""
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+        # Redimensionar manteniendo proporción
+        w, h = img.size
+        if w > max_width:
+            img = img.resize((max_width, int(h * max_width / w)), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        compressed = buf.getvalue()
+        b64 = base64.b64encode(compressed).decode()
+        print(f"[IMG COMPRESS] {file_name}: {len(file_bytes):,} → {len(compressed):,} bytes ({len(b64):,} chars b64)")
+        return b64
+    except Exception as e:
+        print(f"[IMG COMPRESS ERROR] {e}")
+        return ""
+
+
+def _get_evidencias_sheet():
+    """Abre (o crea) la hoja evidencias_data en el mismo spreadsheet."""
+    try:
+        from utils.sheets_manager import _get_client
+        import streamlit as st
+        client = _get_client()
+        sh = client.open_by_key(st.secrets["gsheets"]["spreadsheet_id"])
+        try:
+            ws = sh.worksheet("evidencias_data")
+        except Exception:
+            ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=7)
+            ws.update("A1:G1", [["order_id", "act_id", "filename",
+                                  "user", "ts", "thumb_b64", "is_image"]])
+        return ws
+    except Exception as e:
+        print(f"[EVIDENCIAS SHEET ERROR] {e}")
+        return None
+
+
+def _save_evidence_to_sheets(
+    order_id: int, act_id: int,
+    file_bytes: bytes, file_name: str, username: str,
+) -> str:
+    """
+    Guarda la evidencia en la hoja evidencias_data.
+    Retorna thumb_b64 si es imagen, "" si es otro tipo.
     """
     try:
-        import io as _io
-        from googleapiclient.discovery import build       # noqa
-        from googleapiclient.http import MediaIoBaseUpload
-
-        drive     = _get_drive_client()
-        folder_id = _get_or_create_drive_folder(drive)
-
-        # Detectar mime type
-        ext = file_name.lower().split(".")[-1]
-        mime_map = {
-            "pdf":  "application/pdf",
-            "png":  "image/png",
-            "jpg":  "image/jpeg",
-            "jpeg": "image/jpeg",
-            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        }
-        mime_type = mime_map.get(ext, "application/octet-stream")
-
-        # Nombre del archivo con contexto
-        safe_order = order_number.replace("/", "-").replace(" ", "_")
-        drive_name = f"{safe_order}_Act{act_id:02d}_{file_name}"
-
-        # Subir archivo
-        media = MediaIoBaseUpload(_io.BytesIO(file_bytes), mimetype=mime_type)
-        meta  = {"name": drive_name, "parents": [folder_id]}
-        uploaded = drive.files().create(
-            body=meta, media_body=media, fields="id"
-        ).execute()
-        file_id = uploaded["id"]
-
-        # Permisos públicos de lectura
-        drive.permissions().create(
-            fileId=file_id,
-            body={"type": "anyone", "role": "reader"},
-        ).execute()
-
-        view_url = f"https://drive.google.com/file/d/{file_id}/view"
-        thumb_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w400"
-        print(f"[DRIVE UPLOAD OK] {drive_name} → {view_url}")
-        return file_id, view_url, thumb_url
-
-    except ImportError as e:
-        import streamlit as _st
-        msg = f"❌ Drive — Falta librería: {type(e).__name__}: {e}"
-        _st.session_state["_drive_error"] = msg
-        return "", "", ""
+        thumb_b64 = _compress_image(file_bytes, file_name)
+        ws = _get_evidencias_sheet()
+        if not ws:
+            st.session_state["_drive_error"] = "❌ No se pudo acceder a la hoja evidencias_data."
+            return ""
+        ts = datetime.now().strftime("%d/%m/%Y %H:%M")
+        user_name = USERS.get(username, {}).get("name", username)
+        is_image  = "1" if thumb_b64 else "0"
+        ws.append_row([str(order_id), str(act_id), file_name,
+                       user_name, ts, thumb_b64, is_image])
+        print(f"[EVIDENCE SAVED] order={order_id} act={act_id} file={file_name}")
+        return thumb_b64
     except Exception as e:
-        import streamlit as _st
-        msg = f"❌ Drive error ({type(e).__name__}): {e}"
-        _st.session_state["_drive_error"] = msg
-        return "", "", ""
+        st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
+        print(f"[EVIDENCE SAVE ERROR] {e}")
+        return ""
 
 
-def _render_evidence_gallery(act: dict) -> None:
-    """Muestra la galería de evidencias de una actividad — visible para todos los usuarios."""
-    evidences = act.get("evidences", [])
+def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
+    """Lee todas las evidencias de una actividad desde la hoja evidencias_data."""
+    try:
+        ws = _get_evidencias_sheet()
+        if not ws:
+            return []
+        rows = ws.get_all_records()
+        result = []
+        for row in rows:
+            if str(row.get("order_id","")) == str(order_id) and                str(row.get("act_id","")) == str(act_id):
+                result.append({
+                    "name":      row.get("filename", "—"),
+                    "user":      row.get("user", "—"),
+                    "ts":        row.get("ts", "—"),
+                    "thumb_b64": row.get("thumb_b64", ""),
+                    "is_image":  row.get("is_image", "0") == "1",
+                })
+        return result
+    except Exception as e:
+        print(f"[EVIDENCE LOAD ERROR] {e}")
+        return []
 
-    # Compatibilidad: evidencia antigua con URL de Drive
-    if not evidences and act.get("evidence_name") and act.get("evidence_url"):
-        evidences = [{
-            "name":      act["evidence_name"],
-            "url":       act["evidence_url"],
-            "thumb_url": act.get("evidence_thumb", ""),
-            "user":      "—",
-            "ts":        act.get("completion_date", "—"),
-        }]
 
-    # Compatibilidad: evidencia antigua SIN URL (solo nombre de archivo)
+def _render_evidence_gallery(act: dict, order_id: int) -> None:
+    """Muestra la galería de evidencias desde Google Sheets — visible para todos."""
+    # Cargar evidencias desde hoja evidencias_data
+    evidences = _load_evidences_for_act(order_id, act["id"])
+
+    # Compatibilidad: evidencia antigua solo con nombre
     if not evidences and act.get("evidence_name"):
         evidences = [{
-            "name":      act["evidence_name"],
-            "url":       "",
-            "thumb_url": "",
-            "user":      "—",
-            "ts":        act.get("completion_date", "—"),
-            "sin_url":   True,  # bandera para mostrar aviso
+            "name":     act["evidence_name"],
+            "user":     "—",
+            "ts":       act.get("completion_date", "—"),
+            "thumb_b64": "",
+            "is_image": False,
+            "legacy":   True,
         }]
 
     if not evidences:
@@ -494,47 +500,44 @@ def _render_evidence_gallery(act: dict) -> None:
         f'📸 Evidencias ({len(evidences)})</span></div>',
         unsafe_allow_html=True,
     )
+
     cols = st.columns(min(len(evidences), 3))
     for i, ev in enumerate(evidences):
         with cols[i % 3]:
-            thumb = ev.get("thumb_url", "")
-            url   = ev.get("url", "")
-            name  = ev.get("name", "archivo")
-            user  = ev.get("user", "—")
-            ts    = ev.get("ts", "—")
-            ext   = name.lower().split(".")[-1] if "." in name else ""
+            name     = ev.get("name", "archivo")
+            user     = ev.get("user", "—")
+            ts       = ev.get("ts", "—")
+            thumb_b64 = ev.get("thumb_b64", "")
+            is_image  = ev.get("is_image", False)
 
-            # ── Sin URL: upload falló o evidencia antigua ─────────────
-            if ev.get("sin_url"):
+            if ev.get("legacy"):
+                # Evidencia antigua sin imagen
                 st.markdown(
-                    f'<div style="padding:10px 14px;background:#FFF8F0;'
-                    f'border:1.5px solid #F59E0B;border-radius:8px;text-align:center;">'
-                    f'<div style="font-size:1.2rem;">⚠️</div>'
-                    f'<div style="font-size:.72rem;color:#92400E;font-weight:600;margin-top:4px;">{name}</div>'
-                    f'<div style="font-size:.68rem;color:#6B7280;">Subida a Drive pendiente<br>👤 {user} · {ts}</div>'
-                    f'</div>',
+                    f'<div style="padding:10px;background:#FFF8F0;border:1.5px solid #F59E0B;'
+                    f'border-radius:8px;text-align:center;">'
+                    f'<div style="font-size:1.2rem;">📎</div>'
+                    f'<div style="font-size:.72rem;color:#92400E;font-weight:600;">{name}</div>'
+                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
                     unsafe_allow_html=True,
                 )
-            elif thumb and ext in ("png", "jpg", "jpeg"):
-                # Mostrar miniatura con link
+            elif is_image and thumb_b64:
+                # Mostrar miniatura
                 st.markdown(
-                    f'<a href="{url}" target="_blank">'
-                    f'<img src="{thumb}" style="width:100%;border-radius:8px;'
-                    f'border:2px solid #D1D9E8;margin-bottom:4px;" alt="{name}"/></a>'
-                    f'<div style="font-size:.70rem;color:#6B7280;">'
-                    f'📎 {name}<br>👤 {user} · {ts}</div>',
+                    f'<div style="border-radius:8px;border:2px solid #D1D9E8;overflow:hidden;">'
+                    f'<img src="data:image/jpeg;base64,{thumb_b64}" style="width:100%;" alt="{name}"/>'
+                    f'</div>'
+                    f'<div style="font-size:.70rem;color:#6B7280;margin-top:4px;">'
+                    f'📸 {name}<br>👤 {user} · {ts}</div>',
                     unsafe_allow_html=True,
                 )
             else:
-                # PDF / Excel — mostrar link
+                # Archivo no imagen (PDF, Excel)
                 st.markdown(
-                    f'<a href="{url}" target="_blank" style="text-decoration:none;">'
-                    f'<div style="padding:10px 14px;background:#fff;border:1.5px solid #D1D9E8;'
+                    f'<div style="padding:10px;background:#F8FAFF;border:1.5px solid #D1D9E8;'
                     f'border-radius:8px;text-align:center;">'
                     f'<div style="font-size:1.4rem;">📄</div>'
-                    f'<div style="font-size:.72rem;color:#374151;font-weight:600;margin-top:4px;">{name}</div>'
-                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div>'
-                    f'</div></a>',
+                    f'<div style="font-size:.72rem;color:#374151;font-weight:600;">{name}</div>'
+                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
                     unsafe_allow_html=True,
                 )
 
@@ -1217,7 +1220,7 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
     )
 
     # ── Galería de evidencias — visible para TODOS los usuarios ────────────
-    _render_evidence_gallery(act)
+    _render_evidence_gallery(act, order["id"])
 
     if is_mine and status == "in_progress":
         with st.expander(f"📋  Solicitar cierre — Actividad {act['id']:02d}: {act['name']}", expanded=False):
@@ -1231,23 +1234,16 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                 submitted = st.form_submit_button("✅  Enviar solicitud de cierre",
                                                    type="primary", use_container_width=True)
                 if submitted:
-                    ev_name = ev_url = ev_thumb = ev_file_id = None
+                    ev_name = None
 
                     # ── Subir evidencia a Google Drive ───────────────────────
                     if evidence:
                         ev_bytes = evidence.read()
                         ev_name  = evidence.name
-                        with st.spinner("📤 Subiendo evidencia a Google Drive…"):
-                            ev_file_id, ev_url, ev_thumb = _upload_evidence_to_drive(
-                                ev_bytes, ev_name,
-                                order.get("order_number", ""),
-                                act["id"],
-                            )
-                        if not ev_url:
-                            st.warning(
-                                "⚠️ La evidencia no pudo subirse a Drive "
-                                "(el error exacto aparece arriba). "
-                                "La actividad se cerrará de todas formas."
+                        with st.spinner("💾 Guardando evidencia…"):
+                            _save_evidence_to_sheets(
+                                order["id"], act["id"],
+                                ev_bytes, ev_name, user["username"],
                             )
 
                     ok, msg = request_closure(
@@ -1257,30 +1253,18 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                     if ok:
                         ok2, msg2, alerts = approve_closure(data, order["id"], act["id"])
                         if ok2:
-                            # ── Guardar referencia Drive en la actividad ─────
                             for o in data["orders"]:
                                 if o["id"] == order["id"]:
                                     for a in o.get("activities", []):
                                         if a["id"] == act["id"]:
-                                            if ev_name and ev_url:
-                                                if "evidences" not in a:
-                                                    a["evidences"] = []
-                                                a["evidences"].append({
-                                                    "name":      ev_name,
-                                                    "file_id":   ev_file_id or "",
-                                                    "url":       ev_url,
-                                                    "thumb_url": ev_thumb or "",
-                                                    "user":      USERS.get(user["username"], {}).get("name", user["username"]),
-                                                    "ts":        datetime.now().strftime("%d/%m/%Y %H:%M"),
-                                                })
                                             _log_history(a, user["username"],
                                                          "Actividad cerrada",
                                                          notes or "Sin notas")
                                             break
                             for alert in alerts:
                                 send_activation_email(**alert)
-                            st.success(f"✅ Actividad cerrada. {msg2}"
-                                       + (" · Evidencia guardada en Drive 📁" if ev_url else ""))
+                            ev_msg = " · Evidencia guardada 📸" if ev_name else ""
+                            st.success(f"✅ Actividad cerrada. {msg2}{ev_msg}")
                             _app_save(data)
                             st.rerun()
                         else:
