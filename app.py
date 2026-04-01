@@ -415,10 +415,11 @@ def _upload_evidence_to_drive(
 ) -> tuple[str, str]:
     """
     Sube la evidencia a Google Drive.
-    Retorna (file_id, view_url) o ("", "") si falla.
+    Retorna (file_id, view_url, thumb_url) o ("", "", "") si falla.
     """
     try:
         import io as _io
+        from googleapiclient.discovery import build       # noqa
         from googleapiclient.http import MediaIoBaseUpload
 
         drive     = _get_drive_client()
@@ -459,8 +460,11 @@ def _upload_evidence_to_drive(
         print(f"[DRIVE UPLOAD OK] {drive_name} → {view_url}")
         return file_id, view_url, thumb_url
 
+    except ImportError as e:
+        print(f"[DRIVE IMPORT ERROR] Falta librería: {e}")
+        return "", "", ""
     except Exception as e:
-        print(f"[DRIVE UPLOAD ERROR] {e}")
+        print(f"[DRIVE UPLOAD ERROR] {type(e).__name__}: {e}")
         return "", "", ""
 
 
