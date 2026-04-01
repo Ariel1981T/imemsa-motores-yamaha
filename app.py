@@ -372,6 +372,155 @@ def _log_history(act: dict, username: str, action: str, detail: str = "") -> Non
     })
 
 
+# ══════════════════════════════════════════════════════════
+#  GOOGLE DRIVE — GALERÍA DE EVIDENCIAS
+# ══════════════════════════════════════════════════════════
+
+def _get_drive_client():
+    """Regresa cliente Google Drive autenticado con el mismo service account."""
+    from googleapiclient.discovery import build
+    from google.oauth2.service_account import Credentials
+    import streamlit as st
+    scopes = ["https://www.googleapis.com/auth/drive"]
+    creds  = Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"]), scopes=scopes
+    )
+    return build("drive", "v3", credentials=creds)
+
+
+def _get_or_create_drive_folder(drive, folder_name: str = "IMEMSA_Evidencias") -> str:
+    """Obtiene o crea la carpeta de evidencias en Google Drive. Retorna el folder_id."""
+    # Buscar si ya existe
+    q = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = drive.files().list(q=q, fields="files(id,name)").execute()
+    files   = results.get("files", [])
+    if files:
+        return files[0]["id"]
+    # Crear carpeta nueva
+    meta = {"name": folder_name, "mimeType": "application/vnd.google-apps.folder"}
+    folder = drive.files().create(body=meta, fields="id").execute()
+    # Hacer la carpeta pública para lectura (todos con el link pueden ver)
+    drive.permissions().create(
+        fileId=folder["id"],
+        body={"type": "anyone", "role": "reader"},
+    ).execute()
+    return folder["id"]
+
+
+def _upload_evidence_to_drive(
+    file_bytes: bytes,
+    file_name:  str,
+    order_number: str,
+    act_id: int,
+) -> tuple[str, str]:
+    """
+    Sube la evidencia a Google Drive.
+    Retorna (file_id, view_url) o ("", "") si falla.
+    """
+    try:
+        import io as _io
+        from googleapiclient.http import MediaIoBaseUpload
+
+        drive     = _get_drive_client()
+        folder_id = _get_or_create_drive_folder(drive)
+
+        # Detectar mime type
+        ext = file_name.lower().split(".")[-1]
+        mime_map = {
+            "pdf":  "application/pdf",
+            "png":  "image/png",
+            "jpg":  "image/jpeg",
+            "jpeg": "image/jpeg",
+            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
+        mime_type = mime_map.get(ext, "application/octet-stream")
+
+        # Nombre del archivo con contexto
+        safe_order = order_number.replace("/", "-").replace(" ", "_")
+        drive_name = f"{safe_order}_Act{act_id:02d}_{file_name}"
+
+        # Subir archivo
+        media = MediaIoBaseUpload(_io.BytesIO(file_bytes), mimetype=mime_type)
+        meta  = {"name": drive_name, "parents": [folder_id]}
+        uploaded = drive.files().create(
+            body=meta, media_body=media, fields="id"
+        ).execute()
+        file_id = uploaded["id"]
+
+        # Permisos públicos de lectura
+        drive.permissions().create(
+            fileId=file_id,
+            body={"type": "anyone", "role": "reader"},
+        ).execute()
+
+        view_url = f"https://drive.google.com/file/d/{file_id}/view"
+        thumb_url = f"https://drive.google.com/thumbnail?id={file_id}&sz=w400"
+        print(f"[DRIVE UPLOAD OK] {drive_name} → {view_url}")
+        return file_id, view_url, thumb_url
+
+    except Exception as e:
+        print(f"[DRIVE UPLOAD ERROR] {e}")
+        return "", "", ""
+
+
+def _render_evidence_gallery(act: dict) -> None:
+    """Muestra la galería de evidencias de una actividad — visible para todos los usuarios."""
+    evidences = act.get("evidences", [])
+    # Compatibilidad con evidencia antigua (campo único)
+    if not evidences and act.get("evidence_name") and act.get("evidence_url"):
+        evidences = [{
+            "name":      act["evidence_name"],
+            "url":       act["evidence_url"],
+            "thumb_url": act.get("evidence_thumb", ""),
+            "user":      "—",
+            "ts":        act.get("completion_date", "—"),
+        }]
+
+    if not evidences:
+        return
+
+    st.markdown(
+        f'<div style="margin-top:8px;padding:10px 14px;background:#F0F7FF;'
+        f'border-radius:8px;border-left:3px solid #0D2B6E;">'
+        f'<span style="font-size:.78rem;font-weight:700;color:#0D2B6E;">'
+        f'📸 Evidencias ({len(evidences)})</span></div>',
+        unsafe_allow_html=True,
+    )
+    cols = st.columns(min(len(evidences), 3))
+    for i, ev in enumerate(evidences):
+        with cols[i % 3]:
+            thumb = ev.get("thumb_url", "")
+            url   = ev.get("url", "")
+            name  = ev.get("name", "archivo")
+            user  = ev.get("user", "—")
+            ts    = ev.get("ts", "—")
+            ext   = name.lower().split(".")[-1] if "." in name else ""
+
+            if thumb and ext in ("png", "jpg", "jpeg"):
+                # Mostrar miniatura con link
+                st.markdown(
+                    f'<a href="{url}" target="_blank">'
+                    f'<img src="{thumb}" style="width:100%;border-radius:8px;'
+                    f'border:2px solid #D1D9E8;margin-bottom:4px;" alt="{name}"/></a>'
+                    f'<div style="font-size:.70rem;color:#6B7280;">'
+                    f'📎 {name}<br>👤 {user} · {ts}</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                # Archivo no imagen — mostrar link
+                st.markdown(
+                    f'<a href="{url}" target="_blank" style="text-decoration:none;">'
+                    f'<div style="padding:10px 14px;background:#fff;border:1.5px solid #D1D9E8;'
+                    f'border-radius:8px;text-align:center;">'
+                    f'<div style="font-size:1.4rem;">📄</div>'
+                    f'<div style="font-size:.72rem;color:#374151;font-weight:600;margin-top:4px;">{name}</div>'
+                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div>'
+                    f'</div></a>',
+                    unsafe_allow_html=True,
+                )
+
+
 def _export_order_excel(order: dict) -> bytes:
     """Genera Excel con el detalle de actividades del pedido."""
     try:
@@ -1042,41 +1191,68 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
         unsafe_allow_html=True,
     )
 
+    # ── Galería de evidencias — visible para TODOS los usuarios ────────────
+    _render_evidence_gallery(act)
+
     if is_mine and status == "in_progress":
         with st.expander(f"📋  Solicitar cierre — Actividad {act['id']:02d}: {act['name']}", expanded=False):
             with st.form(f"closure_form_{order['id']}_{act['id']}"):
                 notes    = st.text_area("Observaciones / notas de cierre", height=90)
                 evidence = st.file_uploader(
-                    "Adjuntar evidencia (PDF, imagen, Excel…)",
+                    "📸  Adjuntar evidencia (imagen, PDF, Excel…)",
                     type=["pdf", "png", "jpg", "jpeg", "xlsx", "docx"],
                     key=f"ev_{order['id']}_{act['id']}",
                 )
                 submitted = st.form_submit_button("✅  Enviar solicitud de cierre",
                                                    type="primary", use_container_width=True)
                 if submitted:
-                    ev_name = ev_data = None
+                    ev_name = ev_url = ev_thumb = ev_file_id = None
+
+                    # ── Subir evidencia a Google Drive ───────────────────────
                     if evidence:
-                        ev_name = evidence.name
-                        ev_data = base64.b64encode(evidence.read()).decode()
+                        ev_bytes = evidence.read()
+                        ev_name  = evidence.name
+                        with st.spinner("📤 Subiendo evidencia a Google Drive…"):
+                            ev_file_id, ev_url, ev_thumb = _upload_evidence_to_drive(
+                                ev_bytes, ev_name,
+                                order.get("order_number", ""),
+                                act["id"],
+                            )
+                        if not ev_url:
+                            st.warning("⚠️ No se pudo subir la evidencia a Drive. "
+                                       "Verifica los permisos e intenta de nuevo.")
+
                     ok, msg = request_closure(
                         data, order["id"], act["id"],
-                        user["username"], ev_name, ev_data, notes,
+                        user["username"], ev_name, None, notes,
                     )
                     if ok:
                         ok2, msg2, alerts = approve_closure(data, order["id"], act["id"])
                         if ok2:
-                            # Registrar en historial
+                            # ── Guardar referencia Drive en la actividad ─────
                             for o in data["orders"]:
                                 if o["id"] == order["id"]:
                                     for a in o.get("activities", []):
                                         if a["id"] == act["id"]:
+                                            if ev_name and ev_url:
+                                                if "evidences" not in a:
+                                                    a["evidences"] = []
+                                                a["evidences"].append({
+                                                    "name":      ev_name,
+                                                    "file_id":   ev_file_id or "",
+                                                    "url":       ev_url,
+                                                    "thumb_url": ev_thumb or "",
+                                                    "user":      USERS.get(user["username"], {}).get("name", user["username"]),
+                                                    "ts":        datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                                })
                                             _log_history(a, user["username"],
                                                          "Actividad cerrada",
                                                          notes or "Sin notas")
                                             break
                             for alert in alerts:
                                 send_activation_email(**alert)
-                            st.success(f"✅ Actividad cerrada al 100 %. {msg2}")
+                            st.success(f"✅ Actividad cerrada. {msg2}"
+                                       + (" · Evidencia guardada en Drive 📁" if ev_url else ""))
                             _app_save(data)
                             st.rerun()
                         else:
