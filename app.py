@@ -389,22 +389,9 @@ def _get_drive_client():
 
 
 def _get_or_create_drive_folder(drive, folder_name: str = "IMEMSA_Evidencias") -> str:
-    """Obtiene o crea la carpeta de evidencias en Google Drive. Retorna el folder_id."""
-    # Buscar si ya existe
-    q = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    results = drive.files().list(q=q, fields="files(id,name)").execute()
-    files   = results.get("files", [])
-    if files:
-        return files[0]["id"]
-    # Crear carpeta nueva
-    meta = {"name": folder_name, "mimeType": "application/vnd.google-apps.folder"}
-    folder = drive.files().create(body=meta, fields="id").execute()
-    # Hacer la carpeta pública para lectura (todos con el link pueden ver)
-    drive.permissions().create(
-        fileId=folder["id"],
-        body={"type": "anyone", "role": "reader"},
-    ).execute()
-    return folder["id"]
+    """Retorna el folder_id de la carpeta compartida en Google Drive."""
+    # Carpeta IMEMSA_Evidencias compartida con el service account
+    return "11xiU70EVlNLBAUDD2XFflFvFKCvulaVD"
 
 
 def _upload_evidence_to_drive(
