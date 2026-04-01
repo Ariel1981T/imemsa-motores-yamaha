@@ -378,14 +378,14 @@ def _log_history(act: dict, username: str, action: str, detail: str = "") -> Non
 
 def _get_drive_client():
     """Regresa cliente Google Drive autenticado con el mismo service account."""
-    from googleapiclient.discovery import build
-    from google.oauth2.service_account import Credentials
     import streamlit as st
+    from google.oauth2.service_account import Credentials
+    import googleapiclient.discovery as discovery
     scopes = ["https://www.googleapis.com/auth/drive"]
     creds  = Credentials.from_service_account_info(
         dict(st.secrets["gcp_service_account"]), scopes=scopes
     )
-    return build("drive", "v3", credentials=creds)
+    return discovery.build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
 def _get_or_create_drive_folder(drive, folder_name: str = "IMEMSA_Evidencias") -> str:
@@ -461,10 +461,12 @@ def _upload_evidence_to_drive(
         return file_id, view_url, thumb_url
 
     except ImportError as e:
-        print(f"[DRIVE IMPORT ERROR] Falta librería: {e}")
+        import streamlit as _st
+        _st.error(f"❌ Drive — Falta librería: {e}\nAgrega al requirements.txt y redespliega.")
         return "", "", ""
     except Exception as e:
-        print(f"[DRIVE UPLOAD ERROR] {type(e).__name__}: {e}")
+        import streamlit as _st
+        _st.error(f"❌ Drive error ({type(e).__name__}): {e}")
         return "", "", ""
 
 
@@ -1246,14 +1248,10 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                                 act["id"],
                             )
                         if not ev_url:
-                            st.error(
-                                "❌ No se pudo subir la evidencia a Google Drive. "
-                                "Posibles causas:\n"
-                                "1. La librería `google-api-python-client` no está instalada "
-                                "(verifica requirements.txt)\n"
-                                "2. El service account no tiene permisos de Drive\n\n"
-                                "La actividad se cerrará de todas formas, pero sin imagen en Drive. "
-                                "Puedes volver a subir la imagen después desde Google Drive manualmente."
+                            st.warning(
+                                "⚠️ La evidencia no pudo subirse a Drive "
+                                "(el error exacto aparece arriba). "
+                                "La actividad se cerrará de todas formas."
                             )
 
                     ok, msg = request_closure(
