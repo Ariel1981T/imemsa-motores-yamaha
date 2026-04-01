@@ -467,7 +467,8 @@ def _upload_evidence_to_drive(
 def _render_evidence_gallery(act: dict) -> None:
     """Muestra la galería de evidencias de una actividad — visible para todos los usuarios."""
     evidences = act.get("evidences", [])
-    # Compatibilidad con evidencia antigua (campo único)
+
+    # Compatibilidad: evidencia antigua con URL de Drive
     if not evidences and act.get("evidence_name") and act.get("evidence_url"):
         evidences = [{
             "name":      act["evidence_name"],
@@ -475,6 +476,17 @@ def _render_evidence_gallery(act: dict) -> None:
             "thumb_url": act.get("evidence_thumb", ""),
             "user":      "—",
             "ts":        act.get("completion_date", "—"),
+        }]
+
+    # Compatibilidad: evidencia antigua SIN URL (solo nombre de archivo)
+    if not evidences and act.get("evidence_name"):
+        evidences = [{
+            "name":      act["evidence_name"],
+            "url":       "",
+            "thumb_url": "",
+            "user":      "—",
+            "ts":        act.get("completion_date", "—"),
+            "sin_url":   True,  # bandera para mostrar aviso
         }]
 
     if not evidences:
@@ -497,7 +509,18 @@ def _render_evidence_gallery(act: dict) -> None:
             ts    = ev.get("ts", "—")
             ext   = name.lower().split(".")[-1] if "." in name else ""
 
-            if thumb and ext in ("png", "jpg", "jpeg"):
+            # ── Sin URL: upload falló o evidencia antigua ─────────────
+            if ev.get("sin_url"):
+                st.markdown(
+                    f'<div style="padding:10px 14px;background:#FFF8F0;'
+                    f'border:1.5px solid #F59E0B;border-radius:8px;text-align:center;">'
+                    f'<div style="font-size:1.2rem;">⚠️</div>'
+                    f'<div style="font-size:.72rem;color:#92400E;font-weight:600;margin-top:4px;">{name}</div>'
+                    f'<div style="font-size:.68rem;color:#6B7280;">Subida a Drive pendiente<br>👤 {user} · {ts}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            elif thumb and ext in ("png", "jpg", "jpeg"):
                 # Mostrar miniatura con link
                 st.markdown(
                     f'<a href="{url}" target="_blank">'
@@ -508,7 +531,7 @@ def _render_evidence_gallery(act: dict) -> None:
                     unsafe_allow_html=True,
                 )
             else:
-                # Archivo no imagen — mostrar link
+                # PDF / Excel — mostrar link
                 st.markdown(
                     f'<a href="{url}" target="_blank" style="text-decoration:none;">'
                     f'<div style="padding:10px 14px;background:#fff;border:1.5px solid #D1D9E8;'
@@ -1219,8 +1242,15 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                                 act["id"],
                             )
                         if not ev_url:
-                            st.warning("⚠️ No se pudo subir la evidencia a Drive. "
-                                       "Verifica los permisos e intenta de nuevo.")
+                            st.error(
+                                "❌ No se pudo subir la evidencia a Google Drive. "
+                                "Posibles causas:\n"
+                                "1. La librería `google-api-python-client` no está instalada "
+                                "(verifica requirements.txt)\n"
+                                "2. El service account no tiene permisos de Drive\n\n"
+                                "La actividad se cerrará de todas formas, pero sin imagen en Drive. "
+                                "Puedes volver a subir la imagen después desde Google Drive manualmente."
+                            )
 
                     ok, msg = request_closure(
                         data, order["id"], act["id"],
