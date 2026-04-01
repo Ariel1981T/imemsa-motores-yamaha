@@ -519,66 +519,55 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
     if not evidences:
         return
 
-    st.markdown(
-        f'<div style="margin-top:8px;padding:10px 14px;background:#F0F7FF;'
-        f'border-radius:8px;border-left:3px solid #0D2B6E;">'
-        f'<span style="font-size:.78rem;font-weight:700;color:#0D2B6E;">'
-        f'📸 Evidencias ({len(evidences)})</span></div>',
-        unsafe_allow_html=True,
-    )
+    with st.expander(f"📸  Evidencias  ({len(evidences)})", expanded=False):
+        cols = st.columns(min(len(evidences), 3))
+        for i, ev in enumerate(evidences):
+            with cols[i % 3]:
+                name      = ev.get("name", "archivo")
+                user      = ev.get("user", "—")
+                ts        = ev.get("ts", "—")
+                thumb_b64 = ev.get("thumb_b64", "")
+                is_image  = ev.get("is_image", False)
 
-    cols = st.columns(min(len(evidences), 3))
-    for i, ev in enumerate(evidences):
-        with cols[i % 3]:
-            name     = ev.get("name", "archivo")
-            user     = ev.get("user", "—")
-            ts       = ev.get("ts", "—")
-            thumb_b64 = ev.get("thumb_b64", "")
-            is_image  = ev.get("is_image", False)
-
-            if ev.get("legacy"):
-                # Evidencia antigua sin imagen
-                st.markdown(
-                    f'<div style="padding:10px;background:#FFF8F0;border:1.5px solid #F59E0B;'
-                    f'border-radius:8px;text-align:center;">'
-                    f'<div style="font-size:1.2rem;">📎</div>'
-                    f'<div style="font-size:.72rem;color:#92400E;font-weight:600;">{name}</div>'
-                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
-                    unsafe_allow_html=True,
-                )
-            elif is_image and thumb_b64:
-                # Detectar formato para el data URI
-                ext_img = name.lower().split(".")[-1]
-                mime_img = "image/jpeg" if ext_img in ("jpg","jpeg") else "image/png"
-                st.markdown(
-                    f'<div style="border-radius:8px;border:2px solid #D1D9E8;overflow:hidden;">'
-                    f'<img src="data:{mime_img};base64,{thumb_b64}" style="width:100%;" alt="{name}"/>'
-                    f'</div>'
-                    f'<div style="font-size:.70rem;color:#6B7280;margin-top:4px;">'
-                    f'📸 {name}<br>👤 {user} · {ts}</div>',
-                    unsafe_allow_html=True,
-                )
-            elif is_image and not thumb_b64:
-                # Imagen guardada sin thumbnail (caso legacy)
-                st.markdown(
-                    f'<div style="padding:10px;background:#EEF6FF;border:1.5px solid #93C5FD;'
-                    f'border-radius:8px;text-align:center;">'
-                    f'<div style="font-size:1.4rem;">🖼️</div>'
-                    f'<div style="font-size:.72rem;color:#1E40AF;font-weight:600;">{name}</div>'
-                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}<br>'
-                    f'<em>Vista previa no disponible</em></div></div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                # Archivo no imagen (PDF, Excel)
-                st.markdown(
-                    f'<div style="padding:10px;background:#F8FAFF;border:1.5px solid #D1D9E8;'
-                    f'border-radius:8px;text-align:center;">'
-                    f'<div style="font-size:1.4rem;">📄</div>'
-                    f'<div style="font-size:.72rem;color:#374151;font-weight:600;">{name}</div>'
-                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
-                    unsafe_allow_html=True,
-                )
+                if ev.get("legacy"):
+                    st.markdown(
+                        f'<div style="padding:10px;background:#FFF8F0;border:1.5px solid #F59E0B;'
+                        f'border-radius:8px;text-align:center;">'
+                        f'<div style="font-size:1.2rem;">📎</div>'
+                        f'<div style="font-size:.72rem;color:#92400E;font-weight:600;">{name}</div>'
+                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                elif is_image and thumb_b64:
+                    ext_img  = name.lower().split(".")[-1]
+                    mime_img = "image/jpeg" if ext_img in ("jpg","jpeg") else "image/png"
+                    st.markdown(
+                        f'<div style="border-radius:8px;border:2px solid #D1D9E8;overflow:hidden;">'
+                        f'<img src="data:{mime_img};base64,{thumb_b64}" style="width:100%;" alt="{name}"/>'
+                        f'</div>'
+                        f'<div style="font-size:.70rem;color:#6B7280;margin-top:4px;">'
+                        f'📸 {name}<br>👤 {user} · {ts}</div>',
+                        unsafe_allow_html=True,
+                    )
+                elif is_image and not thumb_b64:
+                    st.markdown(
+                        f'<div style="padding:10px;background:#EEF6FF;border:1.5px solid #93C5FD;'
+                        f'border-radius:8px;text-align:center;">'
+                        f'<div style="font-size:1.4rem;">🖼️</div>'
+                        f'<div style="font-size:.72rem;color:#1E40AF;font-weight:600;">{name}</div>'
+                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}<br>'
+                        f'<em>Vista previa no disponible</em></div></div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f'<div style="padding:10px;background:#F8FAFF;border:1.5px solid #D1D9E8;'
+                        f'border-radius:8px;text-align:center;">'
+                        f'<div style="font-size:1.4rem;">📄</div>'
+                        f'<div style="font-size:.72rem;color:#374151;font-weight:600;">{name}</div>'
+                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
+                        unsafe_allow_html=True,
+                    )
 
 
 def _export_order_excel(order: dict) -> bytes:
@@ -1273,17 +1262,17 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                 submitted = st.form_submit_button("✅  Enviar solicitud de cierre",
                                                    type="primary", use_container_width=True)
                 if submitted:
-                    ev_name = None
+                    if not evidence:
+                        st.error("📎 Debes subir una evidencia antes de cerrar la actividad.")
+                        st.stop()
 
-                    # ── Subir evidencia a Google Drive ───────────────────────
-                    if evidence:
-                        ev_bytes = evidence.read()
-                        ev_name  = evidence.name
-                        with st.spinner("💾 Guardando evidencia…"):
-                            _save_evidence_to_sheets(
-                                order["id"], act["id"],
-                                ev_bytes, ev_name, user["username"],
-                            )
+                    ev_bytes = evidence.read()
+                    ev_name  = evidence.name
+                    with st.spinner("💾 Guardando evidencia…"):
+                        _save_evidence_to_sheets(
+                            order["id"], act["id"],
+                            ev_bytes, ev_name, user["username"],
+                        )
 
                     ok, msg = request_closure(
                         data, order["id"], act["id"],
