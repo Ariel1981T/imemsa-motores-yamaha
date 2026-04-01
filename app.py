@@ -462,11 +462,13 @@ def _upload_evidence_to_drive(
 
     except ImportError as e:
         import streamlit as _st
-        _st.error(f"❌ Drive — Falta librería: {e}\nAgrega al requirements.txt y redespliega.")
+        msg = f"❌ Drive — Falta librería: {type(e).__name__}: {e}"
+        _st.session_state["_drive_error"] = msg
         return "", "", ""
     except Exception as e:
         import streamlit as _st
-        _st.error(f"❌ Drive error ({type(e).__name__}): {e}")
+        msg = f"❌ Drive error ({type(e).__name__}): {e}"
+        _st.session_state["_drive_error"] = msg
         return "", "", ""
 
 
@@ -1078,6 +1080,13 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
+    # Mostrar error de Drive si quedó guardado
+    if st.session_state.get("_drive_error"):
+        st.error(st.session_state["_drive_error"])
+        if st.button("✖ Cerrar error", key="close_drive_err"):
+            del st.session_state["_drive_error"]
+            st.rerun()
+
     data     = _app_data()
     user     = st.session_state["user"]
     order_id = st.session_state.get("selected_order_id")
