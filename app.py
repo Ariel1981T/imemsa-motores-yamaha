@@ -382,15 +382,16 @@ def _compress_image(file_bytes: bytes, file_name: str,
                     max_width: int = 400, quality: int = 45) -> str:
     """
     Comprime la imagen y la retorna como base64.
-    Retorna "" si falla o si no es imagen.
+    Si Pillow no está disponible, usa base64 directo (fallback).
+    Retorna "" si no es imagen.
     """
     ext = file_name.lower().split(".")[-1]
     if ext not in ("png", "jpg", "jpeg"):
         return ""
     try:
+        # Intento 1: comprimir con Pillow
         from PIL import Image
         img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-        # Redimensionar manteniendo proporción
         w, h = img.size
         if w > max_width:
             img = img.resize((max_width, int(h * max_width / w)), Image.LANCZOS)
@@ -398,11 +399,25 @@ def _compress_image(file_bytes: bytes, file_name: str,
         img.save(buf, format="JPEG", quality=quality, optimize=True)
         compressed = buf.getvalue()
         b64 = base64.b64encode(compressed).decode()
-        print(f"[IMG COMPRESS] {file_name}: {len(file_bytes):,} → {len(compressed):,} bytes ({len(b64):,} chars b64)")
+        print(f"[IMG COMPRESS] {file_name}: {len(file_bytes):,} → {len(compressed):,} bytes")
         return b64
+    except ImportError:
+        # Fallback: Pillow no instalado — guardar base64 directo
+        # Solo si el archivo no es demasiado grande (<500KB)
+        if len(file_bytes) <= 500_000:
+            b64 = base64.b64encode(file_bytes).decode()
+            print(f"[IMG B64 FALLBACK] {file_name}: {len(file_bytes):,} bytes → {len(b64):,} chars")
+            return b64
+        else:
+            print(f"[IMG TOO LARGE] {file_name}: {len(file_bytes):,} bytes, se necesita Pillow")
+            return base64.b64encode(file_bytes).decode()  # intentar de todas formas
     except Exception as e:
         print(f"[IMG COMPRESS ERROR] {e}")
-        return ""
+        # Último fallback: base64 directo
+        try:
+            return base64.b64encode(file_bytes).decode()
+        except Exception:
+            return ""
 
 
 def _get_evidencias_sheet():
@@ -440,7 +455,8 @@ def _save_evidence_to_sheets(
             return ""
         ts = datetime.now().strftime("%d/%m/%Y %H:%M")
         user_name = USERS.get(username, {}).get("name", username)
-        is_image  = "1" if thumb_b64 else "0"
+        ext_check = file_name.lower().split(".")[-1]
+        is_image  = "1" if ext_check in ("png", "jpg", "jpeg") else "0"
         ws.append_row([str(order_id), str(act_id), file_name,
                        user_name, ts, thumb_b64, is_image])
         print(f"[EVIDENCE SAVED] order={order_id} act={act_id} file={file_name}")
@@ -521,13 +537,26 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                     unsafe_allow_html=True,
                 )
             elif is_image and thumb_b64:
-                # Mostrar miniatura
+                # Detectar formato para el data URI
+                ext_img = name.lower().split(".")[-1]
+                mime_img = "image/jpeg" if ext_img in ("jpg","jpeg") else "image/png"
                 st.markdown(
                     f'<div style="border-radius:8px;border:2px solid #D1D9E8;overflow:hidden;">'
-                    f'<img src="data:image/jpeg;base64,{thumb_b64}" style="width:100%;" alt="{name}"/>'
+                    f'<img src="data:{mime_img};base64,{thumb_b64}" style="width:100%;" alt="{name}"/>'
                     f'</div>'
                     f'<div style="font-size:.70rem;color:#6B7280;margin-top:4px;">'
                     f'📸 {name}<br>👤 {user} · {ts}</div>',
+                    unsafe_allow_html=True,
+                )
+            elif is_image and not thumb_b64:
+                # Imagen guardada sin thumbnail (caso legacy)
+                st.markdown(
+                    f'<div style="padding:10px;background:#EEF6FF;border:1.5px solid #93C5FD;'
+                    f'border-radius:8px;text-align:center;">'
+                    f'<div style="font-size:1.4rem;">🖼️</div>'
+                    f'<div style="font-size:.72rem;color:#1E40AF;font-weight:600;">{name}</div>'
+                    f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}<br>'
+                    f'<em>Vista previa no disponible</em></div></div>',
                     unsafe_allow_html=True,
                 )
             else:
