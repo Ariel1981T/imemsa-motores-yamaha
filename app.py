@@ -457,8 +457,10 @@ def _save_evidence_to_sheets(
         user_name = USERS.get(username, {}).get("name", username)
         ext_check = file_name.lower().split(".")[-1]
         is_image  = "1" if ext_check in ("png", "jpg", "jpeg") else "0"
-        ws.append_row([str(order_id), str(act_id), file_name,
-                       user_name, ts, thumb_b64, is_image])
+        ws.append_row(
+            [str(order_id), str(act_id), file_name, user_name, ts, thumb_b64, is_image],
+            value_input_option="RAW",
+        )
         print(f"[EVIDENCE SAVED] order={order_id} act={act_id} file={file_name}")
         return thumb_b64
     except Exception as e:
@@ -473,16 +475,24 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
         ws = _get_evidencias_sheet()
         if not ws:
             return []
-        rows = ws.get_all_records()
+        # get_all_values() para no truncar base64 largo (get_all_records trunca)
+        all_rows = ws.get_all_values()
+        if len(all_rows) < 2:
+            return []
+        # Fila 0 = encabezados: order_id|act_id|filename|user|ts|thumb_b64|is_image
+        COL = {h: i for i, h in enumerate(all_rows[0])}
         result = []
-        for row in rows:
-            if str(row.get("order_id","")) == str(order_id) and                str(row.get("act_id","")) == str(act_id):
+        for row in all_rows[1:]:
+            if len(row) < 3:
+                continue
+            if str(row[COL.get("order_id", 0)]) == str(order_id) and                str(row[COL.get("act_id",   1)]) == str(act_id):
+                thumb = row[COL["thumb_b64"]] if "thumb_b64" in COL and len(row) > COL["thumb_b64"] else ""
                 result.append({
-                    "name":      row.get("filename", "—"),
-                    "user":      row.get("user", "—"),
-                    "ts":        row.get("ts", "—"),
-                    "thumb_b64": row.get("thumb_b64", ""),
-                    "is_image":  row.get("is_image", "0") == "1",
+                    "name":     row[COL.get("filename", 2)] if len(row) > 2 else "—",
+                    "user":     row[COL.get("user", 3)]     if len(row) > 3 else "—",
+                    "ts":       row[COL.get("ts",   4)]     if len(row) > 4 else "—",
+                    "thumb_b64": thumb,
+                    "is_image": row[COL.get("is_image", 6)] == "1" if len(row) > 6 else False,
                 })
         return result
     except Exception as e:
