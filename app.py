@@ -876,7 +876,6 @@ def render_sidebar() -> str:
         ]
         if user.get("can_create_orders"):
             nav_items.append(("➕", "Nuevo Pedido", "new_order"))
-            nav_items.append(("🔧", "Migración Etapas", "migracion"))
 
         for icon, label, key in nav_items:
             active_style = "nav-active" if page == key else ""
@@ -1444,125 +1443,6 @@ def page_new_order() -> None:
 
 
 
-# ══════════════════════════════════════════════════════════
-#  PÁGINA ADMIN — MIGRACIÓN DE ACTIVIDADES (temporal)
-# ══════════════════════════════════════════════════════════
-
-def page_migracion() -> None:
-    st.markdown('<div class="section-header">🔧 Migración: Agregar nuevas etapas a pedidos existentes</div>',
-                unsafe_allow_html=True)
-
-    data   = _app_data()
-    orders = [o for o in data["orders"] if o.get("status") != "cancelled"]
-
-    # Detectar cuáles pedidos tienen 19 actividades (formato viejo)
-    pendientes = [o for o in orders if len(o.get("activities", [])) == 19]
-    ya_migrados = [o for o in orders if len(o.get("activities", [])) == 22]
-
-    st.markdown(f"**Pedidos encontrados:** {len(orders)} total · "
-                f"**{len(pendientes)} por migrar** · {len(ya_migrados)} ya migrados")
-
-    if not pendientes:
-        st.success("✅ Todos los pedidos ya tienen las 22 etapas. No hay nada que migrar.")
-        return
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("**Pedidos que se actualizarán:**")
-    for o in pendientes:
-        st.markdown(f"- `{o['order_number']}` — {len(o.get('activities',[]))} etapas actuales → 22 etapas")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.info(
-        "Las 3 etapas nuevas se insertarán después de la etapa 16 **Pago de impuestos**. "
-        "Las etapas 17→20, 18→21, 19→22 se renumerarán. "
-        "Ningún estatus, evidencia ni fecha existente se modificará."
-    )
-    st.warning("⚠️ Esta acción es irreversible. Asegúrate de tener respaldo en Google Sheets.")
-
-    if st.button("🚀  Iniciar migración", type="primary"):
-        from copy import deepcopy
-
-        # Nuevas actividades a insertar (después del id=16)
-        nuevas = [
-            {
-                "id": 17, "phase": "Aduana y Recepción",
-                "name": "Confirmación de cita para despacho",
-                "description": "Coordinar y confirmar la cita con el agente aduanal para el despacho de la mercancía.",
-                "responsible_key": "cmuniz",
-                "days_allocated": 2,
-                "status": "pending",
-                "start_date": None, "due_date": None, "completion_date": None,
-                "evidence_name": None, "evidence_data": None, "notes": "",
-                "closure_requested_by": None, "closure_requested_at": None,
-            },
-            {
-                "id": 18, "phase": "Aduana y Recepción",
-                "name": "Despacho aduanal",
-                "description": "Realizar el despacho aduanal y obtener el levante de la mercancía.",
-                "responsible_key": "cmuniz",
-                "days_allocated": 1,
-                "status": "pending",
-                "start_date": None, "due_date": None, "completion_date": None,
-                "evidence_name": None, "evidence_data": None, "notes": "",
-                "closure_requested_by": None, "closure_requested_at": None,
-            },
-            {
-                "id": 19, "phase": "Aduana y Recepción",
-                "name": "Estancia en patio de transportista",
-                "description": "Coordinar la estancia de la mercancía en patio del transportista previo a su traslado.",
-                "responsible_key": "cmuniz",
-                "days_allocated": 1,
-                "status": "pending",
-                "start_date": None, "due_date": None, "completion_date": None,
-                "evidence_name": None, "evidence_data": None, "notes": "",
-                "closure_requested_by": None, "closure_requested_at": None,
-            },
-        ]
-
-        migrados = 0
-        for order in data["orders"]:
-            acts = order.get("activities", [])
-            if len(acts) != 19:
-                continue
-
-            # Renombrar actividad 16 si aún tiene el nombre viejo
-            act16 = next((a for a in acts if a["id"] == 16), None)
-            if act16 and "Cruce" in act16.get("name", ""):
-                act16["name"] = "Pago de impuestos"
-                act16["days_allocated"] = 1
-
-            # Renumerar las actuales 17→20, 18→21, 19→22
-            for act in acts:
-                if act["id"] == 17:
-                    act["id"] = 20
-                    act["name"] = "Salida y monitoreo de embarque"
-                elif act["id"] == 18:
-                    act["id"] = 21
-                    act["name"] = "Arribo a CEDIS"
-                elif act["id"] == 19:
-                    act["id"] = 22
-                    act["name"] = "Recibo de motores en sistema Oracle"
-
-            # Insertar las 3 nuevas después del id=16
-            idx16 = next((i for i, a in enumerate(acts) if a["id"] == 16), None)
-            if idx16 is not None:
-                for j, nueva in enumerate(nuevas):
-                    acts.insert(idx16 + 1 + j, deepcopy(nueva))
-
-            # Reordenar por id para mantener consistencia
-            acts.sort(key=lambda a: a["id"])
-            order["activities"] = acts
-
-            # Recalcular progreso
-            completed = sum(1 for a in acts if a["status"] == "completed")
-            order["progress"] = round((completed / len(acts)) * 100)
-            migrados += 1
-
-        _app_save(data)
-        st.success(f"🎉 Migración completada. {migrados} pedido(s) actualizados a 22 etapas.")
-        st.balloons()
-        st.rerun()
-
 
 # ══════════════════════════════════════════════════════════
 #  MAIN ROUTER
@@ -1592,8 +1472,6 @@ def main() -> None:
         page_activities()
     elif page == "new_order":
         page_new_order()
-    elif page == "migracion":
-        page_migracion()
     else:
         page_dashboard()
 
