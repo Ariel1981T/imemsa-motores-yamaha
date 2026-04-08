@@ -18,7 +18,7 @@ def _h(pw: str) -> str:
 
 USERS: dict[str, dict] = {
     "dgonzalez": {
-        "password_hash": _h("Lf280606"),
+        "password_hash": _h("Imemsa2024*"),
         "name": "David González",
         "role": "Supervisor",
         "email": "dgonzalez@imemsa.com.mx",
@@ -27,7 +27,7 @@ USERS: dict[str, dict] = {
         "color": "#2563EB",
     },
     "fgarduno": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Imemsa2024*"),
         "name": "Flor Garduño",
         "role": "Responsable de Proceso",
         "email": "fgarduno@imemsa.com.mx",
@@ -36,7 +36,7 @@ USERS: dict[str, dict] = {
         "color": "#7C3AED",
     },
     "jespinoza": {
-        "password_hash": _h("1967Jep1"),
+        "password_hash": _h("Imemsa2024*"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
         "email": "jespinoza@imemsa.com.mx",
@@ -44,18 +44,18 @@ USERS: dict[str, dict] = {
         "avatar": "JE",
         "color": "#059669",
     },
-    "kmerino": {
-        "password_hash": _h("Kmerino23*"),
-        "name": "Karla Merino",
+    "ccastaneda": {
+        "password_hash": _h("Imemsa2024*"),
+        "name": "Carmen Castañeda",
         "role": "Líder Tesorería",
-        "email": "kmerino@imemsa.com.mx",
+        "email": "ccastaneda@imemsa.com.mx",
         "can_create_orders": False,
-        "avatar": "KM",
+        "avatar": "CC",
         "color": "#D97706",
     },
     "cmuniz": {
-        "password_hash": _h("Motor3s"),
-        "name": "Claudia Muñiz",
+        "password_hash": _h("Imemsa2024*"),
+        "name": "Claudia Muñoz",
         "role": "Líder Logística",
         "email": "cmuniz@imemsa.com.mx",
         "can_create_orders": False,
@@ -63,13 +63,13 @@ USERS: dict[str, dict] = {
         "color": "#DC2626",
     },
     # ── Nuevo usuario: Karla Merino (Tesorería) ──────────────────────────────
-    "ratlaco": {
-        "password_hash": _h("Imemsa2026*"),
-        "name": "Ricardo Atlaco",
-        "role": "Director de Finanzas",
-        "email": "ratlaco@imemsa.com.mx",
+    "kmerino": {
+        "password_hash": _h("Imemsa2024*"),
+        "name": "Karla Merino",
+        "role": "Tesorería",
+        "email": "kmerino@imemsa.com.mx",
         "can_create_orders": False,
-        "avatar": "RA",
+        "avatar": "KM",
         "color": "#0891B2",
     },
 }
@@ -80,7 +80,7 @@ ACTIVITIES_TEMPLATE: list[dict] = [
     {
         "id": 1, "phase": "Planificación",
         "name": "Establecer presupuesto de compras",
-        "description": "Definir el sugerido de compra y establecer el presupuesto compra de motores.",
+        "description": "Definir el sugerido de compra y establecer el presupuesto anual para motores.",
         "responsible_key": "dgonzalez",
         "days_allocated": 1,
     },
@@ -101,7 +101,7 @@ ACTIVITIES_TEMPLATE: list[dict] = [
     {
         "id": 4, "phase": "Planificación",
         "name": "Autorizar el sugerido",
-        "description": "Obtener autorización formal del sugerido de compra por parte de la Dirección.",
+        "description": "Obtener autorización formal del sugerido de compra por parte de la supervisión.",
         "responsible_key": "dgonzalez",
         "days_allocated": 1,
     },
@@ -189,27 +189,48 @@ ACTIVITIES_TEMPLATE: list[dict] = [
     # Fase 6 — Aduana y Recepción
     {
         "id": 16, "phase": "Aduana y Recepción",
-        "name": "Cruce en aduana y pago de gastos",
-        "description": "Gestionar el despacho aduanal, pago de impuestos (IVA/IGI) y gastos de importación.",
+        "name": "Pago de impuestos",
+        "description": "Procesar pago de impuestos de importación (IVA/IGI) y gastos aduanales.",
         "responsible_key": "cmuniz",
-        "days_allocated": 5,
+        "days_allocated": 1,
     },
     {
         "id": 17, "phase": "Aduana y Recepción",
+        "name": "Confirmación de cita para despacho",
+        "description": "Coordinar y confirmar la cita con el agente aduanal para el despacho de la mercancía.",
+        "responsible_key": "cmuniz",
+        "days_allocated": 2,
+    },
+    {
+        "id": 18, "phase": "Aduana y Recepción",
+        "name": "Despacho aduanal",
+        "description": "Realizar el despacho aduanal y obtener el levante de la mercancía.",
+        "responsible_key": "cmuniz",
+        "days_allocated": 1,
+    },
+    {
+        "id": 19, "phase": "Aduana y Recepción",
+        "name": "Estancia en patio de transportista",
+        "description": "Coordinar la estancia de la mercancía en patio del transportista previo a su traslado.",
+        "responsible_key": "cmuniz",
+        "days_allocated": 1,
+    },
+    {
+        "id": 20, "phase": "Aduana y Recepción",
         "name": "Salida y monitoreo de embarque",
         "description": "Confirmar salida de aduana y monitorear el traslado terrestre hacia CEDIS.",
         "responsible_key": "cmuniz",
         "days_allocated": 1,
     },
     {
-        "id": 18, "phase": "Aduana y Recepción",
+        "id": 21, "phase": "Aduana y Recepción",
         "name": "Arribo a CEDIS",
         "description": "Recibir el contenedor en el centro de distribución IMEMSA y programar descarga.",
         "responsible_key": "cmuniz",
         "days_allocated": 1,
     },
     {
-        "id": 19, "phase": "Aduana y Recepción",
+        "id": 22, "phase": "Aduana y Recepción",
         "name": "Recibo de motores en sistema Oracle",
         "description": "Inspeccionar motores, dar de alta en sistema Oracle y cerrar el expediente del pedido.",
         "responsible_key": "dgonzalez",
