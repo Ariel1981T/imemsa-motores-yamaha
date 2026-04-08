@@ -44,13 +44,13 @@ USERS: dict[str, dict] = {
         "avatar": "JE",
         "color": "#059669",
     },
-    "ccastaneda": {
+    "kmerino": {
         "password_hash": _h("Imemsa2026*"),
-        "name": "Carmen Castañeda",
+        "name": "Karla Merino",
         "role": "Líder Tesorería",
-        "email": "ccastaneda@imemsa.com.mx",
+        "email": "kmerino@imemsa.com.mx",
         "can_create_orders": False,
-        "avatar": "CC",
+        "avatar": "KM",
         "color": "#D97706",
     },
     "cmuniz": {
