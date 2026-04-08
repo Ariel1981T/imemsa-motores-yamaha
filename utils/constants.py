@@ -18,7 +18,7 @@ def _h(pw: str) -> str:
 
 USERS: dict[str, dict] = {
     "dgonzalez": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Lf280606"),
         "name": "David González",
         "role": "Supervisor",
         "email": "dgonzalez@imemsa.com.mx",
@@ -36,7 +36,7 @@ USERS: dict[str, dict] = {
         "color": "#7C3AED",
     },
     "jespinoza": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("1967Jep1"),
         "name": "Jaime Espinoza",
         "role": "Líder Comercial",
         "email": "jespinoza@imemsa.com.mx",
@@ -45,7 +45,7 @@ USERS: dict[str, dict] = {
         "color": "#059669",
     },
     "kmerino": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Kmerino23*"),
         "name": "Karla Merino",
         "role": "Líder Tesorería",
         "email": "kmerino@imemsa.com.mx",
@@ -54,7 +54,7 @@ USERS: dict[str, dict] = {
         "color": "#D97706",
     },
     "cmuniz": {
-        "password_hash": _h("Imemsa2026*"),
+        "password_hash": _h("Motor3s"),
         "name": "Claudia Muñoz",
         "role": "Líder Logística",
         "email": "cmuniz@imemsa.com.mx",
