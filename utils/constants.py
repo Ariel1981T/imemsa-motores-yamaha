@@ -65,11 +65,11 @@ USERS: dict[str, dict] = {
     # ── Nuevo usuario: Karla Merino (Tesorería) ──────────────────────────────
     "ratlaco": {
         "password_hash": _h("Imemsa2026*"),
-        "name": "Karla Merino",
-        "role": "Tesorería",
-        "email": "kmerino@imemsa.com.mx",
+        "name": "Ricardo Atlaco",
+        "role": "Director de Finanzas",
+        "email": "ratlaco@imemsa.com.mx",
         "can_create_orders": False,
-        "avatar": "KM",
+        "avatar": "RA",
         "color": "#0891B2",
     },
 }
