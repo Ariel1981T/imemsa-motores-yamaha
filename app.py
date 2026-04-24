@@ -429,20 +429,132 @@ def _get_evidencias_sheet():
         sh = client.open_by_key(st.secrets["gsheets"]["spreadsheet_id"])
         try:
             ws = sh.worksheet("evidencias_data")
-            # Migración: agregar columna file_b64 si no existe
+            # Migración: agregar columnas nuevas si no existen
             headers = ws.row_values(1)
+            next_col = len(headers) + 1
             if "file_b64" not in headers:
-                next_col = len(headers) + 1
                 ws.update_cell(1, next_col, "file_b64")
+                next_col += 1
                 print("[EVIDENCIAS SHEET] Columna 'file_b64' agregada (migración)")
+            if "drive_file_id" not in headers:
+                ws.update_cell(1, next_col, "drive_file_id")
+                print("[EVIDENCIAS SHEET] Columna 'drive_file_id' agregada (migración)")
         except Exception:
-            ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=8)
-            ws.update("A1:H1", [["order_id", "act_id", "filename",
+            ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=9)
+            ws.update("A1:I1", [["order_id", "act_id", "filename",
                                   "user", "ts", "thumb_b64", "is_image",
-                                  "file_b64"]])
+                                  "file_b64", "drive_file_id"]])
         return ws
     except Exception as e:
         print(f"[EVIDENCIAS SHEET ERROR] {e}")
+        return None
+
+
+# ══════════════════════════════════════════════════════════
+#  GOOGLE DRIVE — almacenamiento de evidencias
+# ══════════════════════════════════════════════════════════
+
+_DRIVE_FOLDER_NAME = "IMEMSA_Evidencias_Motores"
+
+
+def _get_drive_service():
+    """Crea un servicio de Google Drive API usando las credenciales del service account."""
+    try:
+        from utils.sheets_manager import _get_client
+        client = _get_client()
+        creds = client.auth
+        from googleapiclient.discovery import build
+        service = build("drive", "v3", credentials=creds, cache_discovery=False)
+        return service
+    except Exception as e:
+        print(f"[DRIVE SERVICE ERROR] {e}")
+        return None
+
+
+def _drive_available() -> bool:
+    """Verifica si el API de Drive está disponible."""
+    try:
+        from googleapiclient.discovery import build  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _get_or_create_evidence_folder() -> str | None:
+    """Busca o crea la carpeta raíz de evidencias en Google Drive.
+    Retorna el folder_id o None si falla."""
+    try:
+        service = _get_drive_service()
+        if not service:
+            return None
+        # Buscar carpeta existente
+        query = (f"name='{_DRIVE_FOLDER_NAME}' "
+                 f"and mimeType='application/vnd.google-apps.folder' "
+                 f"and trashed=false")
+        results = service.files().list(
+            q=query, fields="files(id, name)", spaces="drive",
+        ).execute()
+        files = results.get("files", [])
+        if files:
+            folder_id = files[0]["id"]
+            print(f"[DRIVE] Carpeta encontrada: {folder_id}")
+            return folder_id
+        # Crear carpeta nueva
+        metadata = {
+            "name": _DRIVE_FOLDER_NAME,
+            "mimeType": "application/vnd.google-apps.folder",
+        }
+        folder = service.files().create(body=metadata, fields="id").execute()
+        folder_id = folder["id"]
+        # Hacer la carpeta accesible con enlace
+        service.permissions().create(
+            fileId=folder_id,
+            body={"type": "anyone", "role": "reader"},
+        ).execute()
+        print(f"[DRIVE] Carpeta creada: {folder_id}")
+        return folder_id
+    except Exception as e:
+        print(f"[DRIVE FOLDER ERROR] {e}")
+        return None
+
+
+def _upload_evidence_to_drive(
+    file_bytes: bytes, file_name: str,
+    order_id: int, act_id: int,
+) -> str | None:
+    """Sube un archivo de evidencia a Google Drive.
+    Retorna el file_id o None si falla."""
+    try:
+        service = _get_drive_service()
+        if not service:
+            return None
+        folder_id = _get_or_create_evidence_folder()
+        if not folder_id:
+            return None
+        # Nombre descriptivo en Drive: P003_A05_20260424_foto.jpg
+        ts_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+        drive_name = f"P{order_id:03d}_A{act_id:02d}_{ts_tag}_{file_name}"
+        mime = _get_mime_type(file_name)
+        from googleapiclient.http import MediaInMemoryUpload
+        media = MediaInMemoryUpload(file_bytes, mimetype=mime, resumable=True)
+        metadata = {
+            "name": drive_name,
+            "parents": [folder_id],
+        }
+        uploaded = service.files().create(
+            body=metadata, media_body=media, fields="id",
+        ).execute()
+        file_id = uploaded["id"]
+        # Permiso: cualquier persona con el enlace puede ver/descargar
+        service.permissions().create(
+            fileId=file_id,
+            body={"type": "anyone", "role": "reader"},
+        ).execute()
+        print(f"[DRIVE UPLOAD] {drive_name} → id={file_id} ({len(file_bytes):,} bytes)")
+        return file_id
+    except Exception as e:
+        print(f"[DRIVE UPLOAD ERROR] {e}")
         return None
 
 
@@ -451,14 +563,29 @@ def _save_evidence_to_sheets(
     file_bytes: bytes, file_name: str, username: str,
 ) -> str:
     """
-    Guarda la evidencia en la hoja evidencias_data.
+    Guarda la evidencia:
+      1. Sube el archivo a Google Drive (si disponible).
+      2. Guarda metadatos + miniatura + drive_file_id en la hoja evidencias_data.
+      3. Fallback: si Drive no está disponible, guarda file_b64 en la hoja.
     Retorna thumb_b64 si es imagen, "" si es otro tipo.
-    Ahora también guarda el archivo completo como base64 para descarga.
     """
     try:
         thumb_b64 = _compress_image(file_bytes, file_name)
-        # Archivo completo en base64 para descarga
-        file_b64 = base64.b64encode(file_bytes).decode()
+
+        # Intentar subir a Google Drive
+        drive_file_id = ""
+        file_b64 = ""
+        if _drive_available():
+            drive_file_id = _upload_evidence_to_drive(
+                file_bytes, file_name, order_id, act_id,
+            ) or ""
+
+        # Fallback: guardar base64 en hoja si Drive no funcionó
+        if not drive_file_id:
+            file_b64 = base64.b64encode(file_bytes).decode()
+            print(f"[EVIDENCE] Drive no disponible, usando file_b64 fallback "
+                  f"({len(file_b64):,} chars)")
+
         ws = _get_evidencias_sheet()
         if not ws:
             st.session_state["_drive_error"] = "❌ No se pudo acceder a la hoja evidencias_data."
@@ -469,11 +596,12 @@ def _save_evidence_to_sheets(
         is_image  = "1" if ext_check in ("png", "jpg", "jpeg") else "0"
         ws.append_row(
             [str(order_id), str(act_id), file_name, user_name, ts,
-             thumb_b64, is_image, file_b64],
+             thumb_b64, is_image, file_b64, drive_file_id],
             value_input_option="RAW",
         )
+        storage = "Drive" if drive_file_id else "Sheets(b64)"
         print(f"[EVIDENCE SAVED] order={order_id} act={act_id} file={file_name} "
-              f"thumb={len(thumb_b64):,}chars file={len(file_b64):,}chars")
+              f"storage={storage}")
         return thumb_b64
     except Exception as e:
         st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
@@ -491,7 +619,7 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
         all_rows = ws.get_all_values()
         if len(all_rows) < 2:
             return []
-        # Fila 0 = encabezados: order_id|act_id|filename|user|ts|thumb_b64|is_image|file_b64
+        # Encabezados dinámicos
         COL = {h: i for i, h in enumerate(all_rows[0])}
         result = []
         for row in all_rows[1:]:
@@ -501,13 +629,15 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
                     str(row[COL.get("act_id", 1)]) == str(act_id)):
                 thumb = row[COL["thumb_b64"]] if "thumb_b64" in COL and len(row) > COL["thumb_b64"] else ""
                 file_data = row[COL["file_b64"]] if "file_b64" in COL and len(row) > COL["file_b64"] else ""
+                drive_id = row[COL["drive_file_id"]] if "drive_file_id" in COL and len(row) > COL["drive_file_id"] else ""
                 result.append({
-                    "name":     row[COL.get("filename", 2)] if len(row) > 2 else "—",
-                    "user":     row[COL.get("user", 3)]     if len(row) > 3 else "—",
-                    "ts":       row[COL.get("ts",   4)]     if len(row) > 4 else "—",
-                    "thumb_b64": thumb,
-                    "is_image": row[COL.get("is_image", 6)] == "1" if len(row) > 6 else False,
-                    "file_b64": file_data,
+                    "name":          row[COL.get("filename", 2)] if len(row) > 2 else "—",
+                    "user":          row[COL.get("user", 3)]     if len(row) > 3 else "—",
+                    "ts":            row[COL.get("ts",   4)]     if len(row) > 4 else "—",
+                    "thumb_b64":     thumb,
+                    "is_image":      row[COL.get("is_image", 6)] == "1" if len(row) > 6 else False,
+                    "file_b64":      file_data,
+                    "drive_file_id": drive_id,
                 })
         return result
     except Exception as e:
@@ -531,7 +661,7 @@ def _get_mime_type(file_name: str) -> str:
 
 def _render_evidence_gallery(act: dict, order_id: int) -> None:
     """Muestra la galería de evidencias desde Google Sheets — visible para todos,
-    con botón de descarga del archivo original."""
+    con descarga vía Google Drive o base64 fallback."""
     # Cargar evidencias desde hoja evidencias_data
     evidences = _load_evidences_for_act(order_id, act["id"])
 
@@ -544,6 +674,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
             "thumb_b64": "",
             "is_image": False,
             "file_b64": "",
+            "drive_file_id": "",
             "legacy":   True,
         }]
 
@@ -554,13 +685,15 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
         cols = st.columns(min(len(evidences), 3))
         for i, ev in enumerate(evidences):
             with cols[i % 3]:
-                name      = ev.get("name", "archivo")
-                user      = ev.get("user", "—")
-                ts        = ev.get("ts", "—")
-                thumb_b64 = ev.get("thumb_b64", "")
-                is_image  = ev.get("is_image", False)
-                file_b64  = ev.get("file_b64", "")
+                name          = ev.get("name", "archivo")
+                user          = ev.get("user", "—")
+                ts            = ev.get("ts", "—")
+                thumb_b64     = ev.get("thumb_b64", "")
+                is_image      = ev.get("is_image", False)
+                file_b64      = ev.get("file_b64", "")
+                drive_file_id = ev.get("drive_file_id", "")
 
+                # ── VISTA PREVIA ──────────────────────────────
                 if ev.get("legacy"):
                     st.markdown(
                         f'<div style="padding:10px;background:#FFF8F0;border:1.5px solid #F59E0B;'
@@ -607,7 +740,24 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                     )
 
                 # ── BOTÓN DE DESCARGA ────────────────────────────
-                if file_b64:
+                if drive_file_id:
+                    # ✅ Archivo almacenado en Google Drive — enlace de descarga directa
+                    download_url = f"https://drive.google.com/uc?export=download&id={drive_file_id}"
+                    st.markdown(
+                        f'<a href="{download_url}" target="_blank" '
+                        f'style="display:block;text-align:center;padding:8px 12px;margin-top:6px;'
+                        f'background:linear-gradient(135deg,#0D2B6E,#2563EB);color:#fff;'
+                        f'border-radius:8px;font-size:.80rem;font-weight:700;'
+                        f'text-decoration:none;font-family:\'Source Sans 3\',sans-serif;'
+                        f'transition:opacity .2s;"'
+                        f' onmouseover="this.style.opacity=\'0.85\'"'
+                        f' onmouseout="this.style.opacity=\'1\'">'
+                        f'⬇️&nbsp; Descargar {name}'
+                        f'</a>',
+                        unsafe_allow_html=True,
+                    )
+                elif file_b64:
+                    # 📦 Archivo almacenado en Sheets (b64) — descarga directa
                     try:
                         file_bytes = base64.b64decode(file_b64)
                         mime = _get_mime_type(name)
@@ -626,63 +776,417 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
 
 
 def _export_order_excel(order: dict) -> bytes:
-    """Genera Excel con el detalle de actividades del pedido."""
+    """Genera Excel profesional con detalle de actividades + hoja de métricas."""
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment
-        wb  = openpyxl.Workbook()
-        ws  = wb.active
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.chart import BarChart, Reference
+        from openpyxl.utils import get_column_letter
+
+        wb = openpyxl.Workbook()
+        navy   = "0D2B6E"
+        red_c  = "C41E2E"
+        white  = "FFFFFF"
+        gray_l = "F3F4F6"
+        green_l = "D1FAE5"
+        yellow_l = "FEF3C7"
+        red_l  = "FEE2E2"
+        blue_l = "DBEAFE"
+
+        thin_border = Border(
+            left=Side(style="thin", color="D1D5DB"),
+            right=Side(style="thin", color="D1D5DB"),
+            top=Side(style="thin", color="D1D5DB"),
+            bottom=Side(style="thin", color="D1D5DB"),
+        )
+        header_font  = Font(bold=True, color=white, size=10, name="Arial")
+        data_font    = Font(size=10, name="Arial")
+        title_font   = Font(bold=True, color=white, size=13, name="Arial")
+        subtitle_font = Font(size=10, color="555555", name="Arial")
+        kpi_val_font = Font(bold=True, size=16, color=navy, name="Arial")
+        kpi_lbl_font = Font(size=9, color="6B7280", name="Arial")
+        section_font = Font(bold=True, size=11, color=navy, name="Arial")
+
+        status_map = {
+            "completed": "Completada", "in_progress": "En curso",
+            "waiting_closure": "Esp. cierre", "pending": "Pendiente",
+            "blocked": "Bloqueada",
+        }
+        fills = {
+            "completed": green_l, "in_progress": blue_l,
+            "waiting_closure": yellow_l, "blocked": red_l,
+        }
+
+        acts = order.get("activities", [])
+
+        # ──────────────────────────────────────────────────
+        #  HOJA 1: ACTIVIDADES
+        # ──────────────────────────────────────────────────
+        ws = wb.active
         ws.title = "Actividades"
-        navy, red_c, white = "0D2B6E", "C41E2E", "FFFFFF"
-        # Fila 1 — título
-        ws.merge_cells("A1:H1")
+        ws.sheet_properties.tabColor = navy
+
+        # Título
+        ws.merge_cells("A1:L1")
         c = ws["A1"]
         c.value     = f"IMEMSA  ·  {order['order_number']}  —  {order['motor_model']}"
-        c.font      = Font(bold=True, color=white, size=13)
+        c.font      = title_font
         c.fill      = PatternFill("solid", fgColor=navy)
         c.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[1].height = 28
-        # Fila 2 — resumen
-        ws.merge_cells("A2:H2")
+        ws.row_dimensions[1].height = 30
+
+        # Resumen
+        ws.merge_cells("A2:L2")
         c = ws["A2"]
         c.value     = (f"Cantidad: {order['quantity']} u.  ·  Monto/OC: {order['supplier']}"
                        f"  ·  Creado: {order['created_at']}  ·  Avance: {order.get('progress',0)}%")
-        c.font      = Font(size=10, color="555555")
+        c.font      = subtitle_font
         c.alignment = Alignment(horizontal="center")
-        ws.row_dimensions[2].height = 16
-        # Fila 3 — encabezados columnas
+        c.fill      = PatternFill("solid", fgColor=gray_l)
+        ws.row_dimensions[2].height = 18
+
+        # Encabezados
         headers = ["#", "Fase", "Actividad", "Responsable", "Estado",
-                   "Inicio", "Límite", "Cierre"]
+                   "Días asignados", "Inicio", "Límite", "Cierre",
+                   "Días reales", "Diferencia", "Cumplimiento"]
         for col, h in enumerate(headers, 1):
             c = ws.cell(row=3, column=col, value=h)
-            c.font      = Font(bold=True, color=white, size=10)
+            c.font      = header_font
             c.fill      = PatternFill("solid", fgColor=red_c)
-            c.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[3].height = 20
-        status_map = {"completed": "Completada", "in_progress": "En curso",
-                      "waiting_closure": "Esp. cierre", "pending": "Pendiente",
-                      "blocked": "Bloqueada"}
-        fills = {"completed": "F0FDF4", "in_progress": "EFF6FF",
-                 "waiting_closure": "FFFBEB", "blocked": "FEF2F2"}
-        for i, act in enumerate(order.get("activities", []), 4):
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            c.border    = thin_border
+        ws.row_dimensions[3].height = 24
+
+        # Datos de actividades
+        for r, act in enumerate(acts, 4):
             resp = USERS.get(act.get("responsible_key", ""), {})
             st_  = act.get("status", "pending")
-            row  = [act.get("id",""), act.get("phase",""), act.get("name",""),
-                    resp.get("name",""), status_map.get(st_, st_),
-                    act.get("start_date",""), act.get("due_date",""),
-                    act.get("completion_date","")]
-            bg = fills.get(st_, "FFFFFF")
-            for col, val in enumerate(row, 1):
-                c = ws.cell(row=i, column=col, value=val)
+            bg   = fills.get(st_, white)
+
+            # Calcular días reales y diferencia
+            days_alloc = act.get("days_allocated", 0)
+            start_str  = act.get("start_date", "")
+            close_str  = act.get("completion_date", "")
+            days_real  = ""
+            diff_days  = ""
+            compliance = ""
+
+            if start_str and close_str and st_ == "completed":
+                try:
+                    d_start = datetime.strptime(start_str, "%Y-%m-%d").date()
+                    d_close = datetime.strptime(close_str, "%Y-%m-%d").date()
+                    # Contar días hábiles
+                    real = 0
+                    current = d_start
+                    while current < d_close:
+                        current += timedelta(days=1)
+                        if current.weekday() < 5:
+                            real += 1
+                    days_real = max(real, 1)
+                    diff_days = days_alloc - days_real
+                    compliance = "✅ A tiempo" if diff_days >= 0 else "⚠️ Excedida"
+                except Exception:
+                    pass
+
+            row_data = [
+                act.get("id", ""), act.get("phase", ""), act.get("name", ""),
+                resp.get("name", ""), status_map.get(st_, st_),
+                days_alloc, start_str, act.get("due_date", ""), close_str,
+                days_real, diff_days, compliance,
+            ]
+            for col, val in enumerate(row_data, 1):
+                c = ws.cell(row=r, column=col, value=val)
                 c.fill      = PatternFill("solid", fgColor=bg)
-                c.alignment = Alignment(vertical="center", wrap_text=True)
-            ws.row_dimensions[i].height = 18
-        for col, w in zip("ABCDEFGH", [5, 24, 38, 22, 14, 13, 13, 13]):
-            ws.column_dimensions[col].width = w
+                c.font      = data_font
+                c.alignment = Alignment(vertical="center", wrap_text=True,
+                                        horizontal="center" if col in (1,5,6,10,11,12) else "left")
+                c.border    = thin_border
+            ws.row_dimensions[r].height = 20
+
+        # Anchos de columna
+        widths = [5, 24, 38, 22, 14, 12, 13, 13, 13, 12, 12, 14]
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        # ──────────────────────────────────────────────────
+        #  HOJA 2: MÉTRICAS Y ANÁLISIS
+        # ──────────────────────────────────────────────────
+        wm = wb.create_sheet("Métricas")
+        wm.sheet_properties.tabColor = red_c
+
+        # Calcular métricas globales
+        completed_acts = [a for a in acts if a.get("status") == "completed"]
+        total_acts     = len(acts)
+        done_count     = len(completed_acts)
+        pending_count  = total_acts - done_count
+
+        # Días reales por actividad completada
+        real_days_list = []
+        alloc_days_list = []
+        on_time_count = 0
+        late_count    = 0
+        for act in completed_acts:
+            s = act.get("start_date", "")
+            e = act.get("completion_date", "")
+            alloc = act.get("days_allocated", 0)
+            if s and e:
+                try:
+                    ds = datetime.strptime(s, "%Y-%m-%d").date()
+                    de = datetime.strptime(e, "%Y-%m-%d").date()
+                    real = 0
+                    cur = ds
+                    while cur < de:
+                        cur += timedelta(days=1)
+                        if cur.weekday() < 5:
+                            real += 1
+                    real = max(real, 1)
+                    real_days_list.append(real)
+                    alloc_days_list.append(alloc)
+                    if real <= alloc:
+                        on_time_count += 1
+                    else:
+                        late_count += 1
+                except Exception:
+                    pass
+
+        total_real  = sum(real_days_list) if real_days_list else 0
+        total_alloc = sum(alloc_days_list) if alloc_days_list else 0
+        avg_real    = round(total_real / len(real_days_list), 1) if real_days_list else 0
+        efficiency  = round((total_alloc / total_real * 100), 1) if total_real > 0 else 0
+        on_time_pct = round(on_time_count / len(real_days_list) * 100, 1) if real_days_list else 0
+
+        # Ciclo total del pedido (primera actividad inicio → última cierre)
+        cycle_start = ""
+        cycle_end   = ""
+        cycle_days  = ""
+        for a in acts:
+            if a.get("start_date") and (not cycle_start or a["start_date"] < cycle_start):
+                cycle_start = a["start_date"]
+        for a in completed_acts:
+            if a.get("completion_date") and (not cycle_end or a["completion_date"] > cycle_end):
+                cycle_end = a["completion_date"]
+        if cycle_start and cycle_end:
+            try:
+                ds = datetime.strptime(cycle_start, "%Y-%m-%d").date()
+                de = datetime.strptime(cycle_end, "%Y-%m-%d").date()
+                cd = 0
+                cur = ds
+                while cur < de:
+                    cur += timedelta(days=1)
+                    if cur.weekday() < 5:
+                        cd += 1
+                cycle_days = cd
+            except Exception:
+                pass
+
+        # ── Título
+        wm.merge_cells("A1:H1")
+        c = wm["A1"]
+        c.value = f"📊  MÉTRICAS DEL PEDIDO  ·  {order['order_number']}"
+        c.font  = title_font
+        c.fill  = PatternFill("solid", fgColor=navy)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        wm.row_dimensions[1].height = 30
+
+        # ── KPIs principales (fila 3-4)
+        kpis = [
+            (f"{done_count}/{total_acts}", "Actividades completadas"),
+            (f"{on_time_pct}%", "Cumplimiento a tiempo"),
+            (f"{efficiency}%", "Eficiencia general"),
+            (f"{cycle_days or '—'}", "Días hábiles del ciclo"),
+            (f"{avg_real}", "Promedio días/actividad"),
+            (f"{on_time_count}", "A tiempo"),
+            (f"{late_count}", "Excedidas"),
+            (f"{pending_count}", "Pendientes"),
+        ]
+        for i, (val, lbl) in enumerate(kpis):
+            col = i + 1
+            c = wm.cell(row=3, column=col, value=val)
+            c.font = kpi_val_font
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.fill = PatternFill("solid", fgColor=gray_l)
+            c.border = thin_border
+            c = wm.cell(row=4, column=col, value=lbl)
+            c.font = kpi_lbl_font
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            c.border = thin_border
+        wm.row_dimensions[3].height = 28
+        wm.row_dimensions[4].height = 28
+
+        # ── Tabla: Análisis por responsable (fila 6+)
+        r = 6
+        wm.merge_cells(f"A{r}:F{r}")
+        c = wm.cell(row=r, column=1, value="📋  ANÁLISIS POR RESPONSABLE")
+        c.font = section_font
+        c.fill = PatternFill("solid", fgColor=blue_l)
+        c.alignment = Alignment(vertical="center")
+        r += 1
+
+        resp_headers = ["Responsable", "Actividades", "Completadas",
+                        "Días reales (total)", "Promedio días", "% A tiempo"]
+        for col, h in enumerate(resp_headers, 1):
+            c = wm.cell(row=r, column=col, value=h)
+            c.font = header_font
+            c.fill = PatternFill("solid", fgColor=red_c)
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.border = thin_border
+        r += 1
+
+        # Agrupar por responsable
+        resp_stats: dict[str, dict] = {}
+        for act in acts:
+            rk = act.get("responsible_key", "")
+            rn = USERS.get(rk, {}).get("name", rk)
+            if rn not in resp_stats:
+                resp_stats[rn] = {"total": 0, "done": 0, "real_days": [], "on_time": 0}
+            resp_stats[rn]["total"] += 1
+            if act.get("status") == "completed":
+                resp_stats[rn]["done"] += 1
+                s = act.get("start_date", "")
+                e = act.get("completion_date", "")
+                alloc = act.get("days_allocated", 0)
+                if s and e:
+                    try:
+                        ds = datetime.strptime(s, "%Y-%m-%d").date()
+                        de = datetime.strptime(e, "%Y-%m-%d").date()
+                        real = 0
+                        cur = ds
+                        while cur < de:
+                            cur += timedelta(days=1)
+                            if cur.weekday() < 5:
+                                real += 1
+                        real = max(real, 1)
+                        resp_stats[rn]["real_days"].append(real)
+                        if real <= alloc:
+                            resp_stats[rn]["on_time"] += 1
+                    except Exception:
+                        pass
+
+        resp_start_row = r
+        for rn, st_ in sorted(resp_stats.items()):
+            avg_d = round(sum(st_["real_days"]) / len(st_["real_days"]), 1) if st_["real_days"] else "—"
+            ot_p  = round(st_["on_time"] / len(st_["real_days"]) * 100, 1) if st_["real_days"] else "—"
+            row_data = [rn, st_["total"], st_["done"],
+                        sum(st_["real_days"]) if st_["real_days"] else "—",
+                        avg_d, f"{ot_p}%" if isinstance(ot_p, float) else ot_p]
+            for col, val in enumerate(row_data, 1):
+                c = wm.cell(row=r, column=col, value=val)
+                c.font = data_font
+                c.alignment = Alignment(horizontal="center" if col > 1 else "left",
+                                        vertical="center")
+                c.border = thin_border
+            r += 1
+
+        # ── Tabla: Análisis por fase (fila r+2)
+        r += 2
+        wm.merge_cells(f"A{r}:F{r}")
+        c = wm.cell(row=r, column=1, value="📋  ANÁLISIS POR FASE")
+        c.font = section_font
+        c.fill = PatternFill("solid", fgColor=blue_l)
+        c.alignment = Alignment(vertical="center")
+        r += 1
+
+        phase_headers = ["Fase", "Actividades", "Completadas",
+                         "Días asignados", "Días reales", "Diferencia"]
+        for col, h in enumerate(phase_headers, 1):
+            c = wm.cell(row=r, column=col, value=h)
+            c.font = header_font
+            c.fill = PatternFill("solid", fgColor=red_c)
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.border = thin_border
+        r += 1
+
+        # Agrupar por fase
+        phase_stats: dict[str, dict] = {}
+        for act in acts:
+            ph = act.get("phase", "Sin fase")
+            if ph not in phase_stats:
+                phase_stats[ph] = {"total": 0, "done": 0, "alloc": 0, "real": 0}
+            phase_stats[ph]["total"] += 1
+            phase_stats[ph]["alloc"] += act.get("days_allocated", 0)
+            if act.get("status") == "completed":
+                phase_stats[ph]["done"] += 1
+                s = act.get("start_date", "")
+                e = act.get("completion_date", "")
+                if s and e:
+                    try:
+                        ds = datetime.strptime(s, "%Y-%m-%d").date()
+                        de = datetime.strptime(e, "%Y-%m-%d").date()
+                        real = 0
+                        cur = ds
+                        while cur < de:
+                            cur += timedelta(days=1)
+                            if cur.weekday() < 5:
+                                real += 1
+                        phase_stats[ph]["real"] += max(real, 1)
+                    except Exception:
+                        pass
+
+        phase_chart_start = r
+        for ph, st_ in phase_stats.items():
+            diff = st_["alloc"] - st_["real"] if st_["real"] > 0 else "—"
+            row_data = [ph, st_["total"], st_["done"],
+                        st_["alloc"], st_["real"] if st_["real"] > 0 else "—", diff]
+            for col, val in enumerate(row_data, 1):
+                c = wm.cell(row=r, column=col, value=val)
+                c.font = data_font
+                c.alignment = Alignment(horizontal="center" if col > 1 else "left",
+                                        vertical="center", wrap_text=True)
+                c.border = thin_border
+                # Color: rojo si excedida, verde si a tiempo
+                if col == 6 and isinstance(val, int):
+                    c.fill = PatternFill("solid",
+                                         fgColor=green_l if val >= 0 else red_l)
+            r += 1
+        phase_chart_end = r - 1
+
+        # ── Gráfica: Días asignados vs reales por fase
+        if phase_chart_end >= phase_chart_start:
+            chart = BarChart()
+            chart.type = "col"
+            chart.grouping = "clustered"
+            chart.title = "Días Asignados vs Reales por Fase"
+            chart.y_axis.title = "Días hábiles"
+            chart.x_axis.title = "Fase"
+            chart.style = 10
+            chart.width = 22
+            chart.height = 12
+
+            cats = Reference(wm, min_col=1, min_row=phase_chart_start,
+                             max_row=phase_chart_end)
+            data_alloc = Reference(wm, min_col=4, min_row=phase_chart_start - 1,
+                                   max_row=phase_chart_end)
+            data_real  = Reference(wm, min_col=5, min_row=phase_chart_start - 1,
+                                   max_row=phase_chart_end)
+            chart.add_data(data_alloc, titles_from_data=True)
+            chart.add_data(data_real,  titles_from_data=True)
+            chart.set_categories(cats)
+
+            # Colores IMEMSA
+            chart.series[0].graphicalProperties.solidFill = navy
+            chart.series[1].graphicalProperties.solidFill = red_c
+
+            wm.add_chart(chart, f"A{r + 1}")
+
+        # Anchos de columna hoja Métricas
+        for i, w in enumerate([26, 14, 14, 16, 14, 14, 14, 14], 1):
+            wm.column_dimensions[get_column_letter(i)].width = w
+
+        # ── Footer con fecha de generación
+        footer_row = r + 18
+        wm.merge_cells(f"A{footer_row}:H{footer_row}")
+        c = wm.cell(row=footer_row, column=1,
+                     value=f"Reporte generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}  ·  "
+                           f"IMEMSA — Sistema de Compra de Motores Yamaha v2.2")
+        c.font = Font(size=8, color="9CA3AF", italic=True, name="Arial")
+        c.alignment = Alignment(horizontal="center")
+
         buf = io.BytesIO()
         wb.save(buf)
         return buf.getvalue()
-    except Exception:
+    except Exception as e:
+        print(f"[EXCEL EXPORT ERROR] {e}")
+        import traceback; traceback.print_exc()
         return b""
 
 
@@ -842,7 +1346,7 @@ def page_login() -> None:
     <div style="position:fixed;bottom:18px;right:22px;z-index:100;
         font-size:9px;letter-spacing:3px;color:rgba(200,216,240,0.3);
         text-transform:uppercase;font-family:'Rajdhani',sans-serif;">
-        Sistema v2.1 · 2026</div>
+        Sistema v2.2 · 2026</div>
     """, unsafe_allow_html=True)
 
     st.markdown("<div style='height:5vh'></div>", unsafe_allow_html=True)
