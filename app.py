@@ -429,10 +429,17 @@ def _get_evidencias_sheet():
         sh = client.open_by_key(st.secrets["gsheets"]["spreadsheet_id"])
         try:
             ws = sh.worksheet("evidencias_data")
+            # Migración: agregar columna file_b64 si no existe
+            headers = ws.row_values(1)
+            if "file_b64" not in headers:
+                next_col = len(headers) + 1
+                ws.update_cell(1, next_col, "file_b64")
+                print("[EVIDENCIAS SHEET] Columna 'file_b64' agregada (migración)")
         except Exception:
-            ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=7)
-            ws.update("A1:G1", [["order_id", "act_id", "filename",
-                                  "user", "ts", "thumb_b64", "is_image"]])
+            ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=8)
+            ws.update("A1:H1", [["order_id", "act_id", "filename",
+                                  "user", "ts", "thumb_b64", "is_image",
+                                  "file_b64"]])
         return ws
     except Exception as e:
         print(f"[EVIDENCIAS SHEET ERROR] {e}")
@@ -446,9 +453,12 @@ def _save_evidence_to_sheets(
     """
     Guarda la evidencia en la hoja evidencias_data.
     Retorna thumb_b64 si es imagen, "" si es otro tipo.
+    Ahora también guarda el archivo completo como base64 para descarga.
     """
     try:
         thumb_b64 = _compress_image(file_bytes, file_name)
+        # Archivo completo en base64 para descarga
+        file_b64 = base64.b64encode(file_bytes).decode()
         ws = _get_evidencias_sheet()
         if not ws:
             st.session_state["_drive_error"] = "❌ No se pudo acceder a la hoja evidencias_data."
@@ -458,10 +468,12 @@ def _save_evidence_to_sheets(
         ext_check = file_name.lower().split(".")[-1]
         is_image  = "1" if ext_check in ("png", "jpg", "jpeg") else "0"
         ws.append_row(
-            [str(order_id), str(act_id), file_name, user_name, ts, thumb_b64, is_image],
+            [str(order_id), str(act_id), file_name, user_name, ts,
+             thumb_b64, is_image, file_b64],
             value_input_option="RAW",
         )
-        print(f"[EVIDENCE SAVED] order={order_id} act={act_id} file={file_name}")
+        print(f"[EVIDENCE SAVED] order={order_id} act={act_id} file={file_name} "
+              f"thumb={len(thumb_b64):,}chars file={len(file_b64):,}chars")
         return thumb_b64
     except Exception as e:
         st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
@@ -479,20 +491,23 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
         all_rows = ws.get_all_values()
         if len(all_rows) < 2:
             return []
-        # Fila 0 = encabezados: order_id|act_id|filename|user|ts|thumb_b64|is_image
+        # Fila 0 = encabezados: order_id|act_id|filename|user|ts|thumb_b64|is_image|file_b64
         COL = {h: i for i, h in enumerate(all_rows[0])}
         result = []
         for row in all_rows[1:]:
             if len(row) < 3:
                 continue
-            if str(row[COL.get("order_id", 0)]) == str(order_id) and                str(row[COL.get("act_id",   1)]) == str(act_id):
+            if (str(row[COL.get("order_id", 0)]) == str(order_id) and
+                    str(row[COL.get("act_id", 1)]) == str(act_id)):
                 thumb = row[COL["thumb_b64"]] if "thumb_b64" in COL and len(row) > COL["thumb_b64"] else ""
+                file_data = row[COL["file_b64"]] if "file_b64" in COL and len(row) > COL["file_b64"] else ""
                 result.append({
                     "name":     row[COL.get("filename", 2)] if len(row) > 2 else "—",
                     "user":     row[COL.get("user", 3)]     if len(row) > 3 else "—",
                     "ts":       row[COL.get("ts",   4)]     if len(row) > 4 else "—",
                     "thumb_b64": thumb,
                     "is_image": row[COL.get("is_image", 6)] == "1" if len(row) > 6 else False,
+                    "file_b64": file_data,
                 })
         return result
     except Exception as e:
@@ -500,8 +515,23 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
         return []
 
 
+def _get_mime_type(file_name: str) -> str:
+    """Retorna el MIME type basado en la extensión del archivo."""
+    ext = file_name.lower().split(".")[-1]
+    mime_map = {
+        "pdf":  "application/pdf",
+        "png":  "image/png",
+        "jpg":  "image/jpeg",
+        "jpeg": "image/jpeg",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    return mime_map.get(ext, "application/octet-stream")
+
+
 def _render_evidence_gallery(act: dict, order_id: int) -> None:
-    """Muestra la galería de evidencias desde Google Sheets — visible para todos."""
+    """Muestra la galería de evidencias desde Google Sheets — visible para todos,
+    con botón de descarga del archivo original."""
     # Cargar evidencias desde hoja evidencias_data
     evidences = _load_evidences_for_act(order_id, act["id"])
 
@@ -513,6 +543,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
             "ts":       act.get("completion_date", "—"),
             "thumb_b64": "",
             "is_image": False,
+            "file_b64": "",
             "legacy":   True,
         }]
 
@@ -528,6 +559,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                 ts        = ev.get("ts", "—")
                 thumb_b64 = ev.get("thumb_b64", "")
                 is_image  = ev.get("is_image", False)
+                file_b64  = ev.get("file_b64", "")
 
                 if ev.get("legacy"):
                     st.markdown(
@@ -535,7 +567,9 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         f'border-radius:8px;text-align:center;">'
                         f'<div style="font-size:1.2rem;">📎</div>'
                         f'<div style="font-size:.72rem;color:#92400E;font-weight:600;">{name}</div>'
-                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
+                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div>'
+                        f'<div style="font-size:.65rem;color:#9CA3AF;margin-top:4px;">'
+                        f'<em>Subida antes de v2.1 — sin descarga</em></div></div>',
                         unsafe_allow_html=True,
                     )
                 elif is_image and thumb_b64:
@@ -560,14 +594,35 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         unsafe_allow_html=True,
                     )
                 else:
+                    # Archivo no-imagen (PDF, Excel, Word)
+                    ext_icon = {"pdf": "📕", "xlsx": "📊", "docx": "📝"}.get(
+                        name.lower().split(".")[-1], "📄")
                     st.markdown(
                         f'<div style="padding:10px;background:#F8FAFF;border:1.5px solid #D1D9E8;'
                         f'border-radius:8px;text-align:center;">'
-                        f'<div style="font-size:1.4rem;">📄</div>'
+                        f'<div style="font-size:1.4rem;">{ext_icon}</div>'
                         f'<div style="font-size:.72rem;color:#374151;font-weight:600;">{name}</div>'
                         f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
                         unsafe_allow_html=True,
                     )
+
+                # ── BOTÓN DE DESCARGA ────────────────────────────
+                if file_b64:
+                    try:
+                        file_bytes = base64.b64decode(file_b64)
+                        mime = _get_mime_type(name)
+                        st.download_button(
+                            label=f"⬇️  Descargar {name}",
+                            data=file_bytes,
+                            file_name=name,
+                            mime=mime,
+                            key=f"dl_{order_id}_{act['id']}_{i}",
+                            use_container_width=True,
+                        )
+                    except Exception as e:
+                        st.caption(f"⚠️ Error al preparar descarga: {e}")
+                elif not ev.get("legacy"):
+                    st.caption("📦 Archivo subido antes de esta versión — sin descarga")
 
 
 def _export_order_excel(order: dict) -> bytes:
@@ -787,7 +842,7 @@ def page_login() -> None:
     <div style="position:fixed;bottom:18px;right:22px;z-index:100;
         font-size:9px;letter-spacing:3px;color:rgba(200,216,240,0.3);
         text-transform:uppercase;font-family:'Rajdhani',sans-serif;">
-        Sistema v2.0 · 2026</div>
+        Sistema v2.1 · 2026</div>
     """, unsafe_allow_html=True)
 
     st.markdown("<div style='height:5vh'></div>", unsafe_allow_html=True)
