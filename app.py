@@ -38,7 +38,30 @@ from utils.email_utils  import send_activation_email, send_overdue_alert
 def _app_data() -> dict:
     if "_app_data_store" not in st.session_state:
         st.session_state["_app_data_store"] = load_data()
+        _apply_data_patches(st.session_state["_app_data_store"])
     return st.session_state["_app_data_store"]
+
+
+def _apply_data_patches(data: dict) -> None:
+    """Correcciones puntuales de datos. Se ejecuta una sola vez al cargar."""
+    patched = False
+    for order in data.get("orders", []):
+        # Fix: IMEMSA-YAM-2026-007 → IMEMSA-YAM-2026-006 (solo 6 pedidos)
+        if order.get("order_number") == "IMEMSA-YAM-2026-007":
+            order["order_number"] = "IMEMSA-YAM-2026-006"
+            # También corregir motor_model si apunta al número viejo
+            if "IMEMSA-YAM-2026-006" in order.get("motor_model", ""):
+                pass  # ya está correcto en motor_model
+            patched = True
+            print("[DATA PATCH] order_number IMEMSA-YAM-2026-007 → 006")
+    if patched:
+        try:
+            from utils.sheets_manager import _gsheets_available, save_to_sheets
+            if _gsheets_available():
+                save_to_sheets(data)
+                print("[DATA PATCH] Guardado en Sheets exitosamente")
+        except Exception as e:
+            print(f"[DATA PATCH] Error al guardar: {e}")
 
 
 def _app_save(data: dict) -> None:
@@ -1644,12 +1667,24 @@ def _render_order_card(order: dict) -> None:
             f'</div>',
             unsafe_allow_html=True,
         )
-        col_btn, _ = st.columns([1, 4])
+        col_btn, col_xl, _ = st.columns([1, 1, 3])
         with col_btn:
             if st.button("Ver actividades →", key=f"open_order_{order['id']}"):
                 st.session_state["selected_order_id"] = order["id"]
                 st.session_state["page"] = "activities"
                 st.rerun()
+        with col_xl:
+            if order.get("status") == "completed":
+                excel_bytes = _export_order_excel(order)
+                if excel_bytes:
+                    st.download_button(
+                        label="📊  Descargar métricas",
+                        data=excel_bytes,
+                        file_name=f"{order['order_number'].replace('/','-')}_metricas.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"xl_card_{order['id']}",
+                        use_container_width=True,
+                    )
 
 
 # ══════════════════════════════════════════════════════════
