@@ -780,7 +780,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         unsafe_allow_html=True,
                     )
                 elif file_b64:
-                    # 📦 Archivo almacenado en Sheets (b64) — descarga directa
+                    # 📦 Archivo completo almacenado en Sheets (b64)
                     try:
                         file_bytes = base64.b64decode(file_b64)
                         mime = _get_mime_type(name)
@@ -794,8 +794,23 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         )
                     except Exception as e:
                         st.caption(f"⚠️ Error al preparar descarga: {e}")
+                elif is_image and thumb_b64 and not ev.get("legacy"):
+                    # 🖼️ Fallback: descargar la miniatura para evidencias anteriores
+                    try:
+                        thumb_bytes = base64.b64decode(thumb_b64)
+                        dl_name = name.rsplit(".", 1)[0] + ".jpg"
+                        st.download_button(
+                            label=f"⬇️  Descargar {name}",
+                            data=thumb_bytes,
+                            file_name=dl_name,
+                            mime="image/jpeg",
+                            key=f"dl_thumb_{order_id}_{act['id']}_{i}",
+                            use_container_width=True,
+                        )
+                    except Exception as e:
+                        st.caption(f"⚠️ Error al preparar descarga: {e}")
                 elif not ev.get("legacy"):
-                    st.caption("📦 Archivo subido antes de esta versión — sin descarga")
+                    st.caption("📄 Archivo no-imagen subido antes de v2.2 — sin descarga")
 
 
 def _export_order_excel(order: dict) -> bytes:
