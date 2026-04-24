@@ -44,17 +44,23 @@ def _app_data() -> dict:
 
 def _apply_data_patches(data: dict) -> None:
     """Correcciones puntuales de datos. Se ejecuta una sola vez al cargar."""
-    patched = False
-    for order in data.get("orders", []):
-        # Fix: IMEMSA-YAM-2026-007 → IMEMSA-YAM-2026-006 (solo 6 pedidos)
-        if order.get("order_number") == "IMEMSA-YAM-2026-007":
-            order["order_number"] = "IMEMSA-YAM-2026-006"
-            # También corregir motor_model si apunta al número viejo
-            if "IMEMSA-YAM-2026-006" in order.get("motor_model", ""):
-                pass  # ya está correcto en motor_model
-            patched = True
-            print("[DATA PATCH] order_number IMEMSA-YAM-2026-007 → 006")
-    if patched:
+    orders = data.get("orders", [])
+    # Patch: eliminar pedido duplicado (order_number 007 / motor_model IMEMSA-YAM-2026-006)
+    to_remove = None
+    for order in orders:
+        # Coincide si aún tiene el 007 original O si ya se renombró a 006 con motor_model erróneo
+        is_target = (
+            order.get("order_number") == "IMEMSA-YAM-2026-007"
+            or (order.get("order_number") == "IMEMSA-YAM-2026-006"
+                and order.get("motor_model", "").strip() == "IMEMSA-YAM-2026-006")
+        )
+        if is_target:
+            to_remove = order
+            break
+    if to_remove:
+        orders.remove(to_remove)
+        print(f"[DATA PATCH] Pedido eliminado: {to_remove.get('order_number')} "
+              f"(motor_model={to_remove.get('motor_model')})")
         try:
             from utils.sheets_manager import _gsheets_available, save_to_sheets
             if _gsheets_available():
