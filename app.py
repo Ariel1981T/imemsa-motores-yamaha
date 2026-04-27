@@ -510,10 +510,20 @@ _DRIVE_FOLDER_NAME = "IMEMSA_Evidencias_Motores"
 def _get_drive_service():
     """Crea un servicio de Google Drive API usando las credenciales del service account."""
     try:
-        from utils.sheets_manager import _get_client
-        client = _get_client()
-        creds = client.auth
+        from google.oauth2.service_account import Credentials
         from googleapiclient.discovery import build
+
+        # Construir credenciales directo desde secrets (no depender de gspread)
+        creds_info = dict(st.secrets["gsheets"])
+        # Asegurar que tenga los campos necesarios
+        if "type" not in creds_info:
+            creds_info["type"] = "service_account"
+
+        scopes = [
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/drive.file",
+        ]
+        creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
         service = build("drive", "v3", credentials=creds, cache_discovery=False)
         return service
     except Exception as e:
