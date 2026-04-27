@@ -492,22 +492,62 @@ def _get_mime_type(file_name: str) -> str:
     }.get(ext, "application/octet-stream")
 
 
+def _upload_to_cloudinary(file_bytes: bytes, file_name: str,
+                          order_id: int, act_id: int) -> str:
+    """Sube archivo a Cloudinary. Retorna la URL de descarga o '' si falla."""
+    try:
+        import cloudinary
+        import cloudinary.uploader
+
+        cloudinary.config(
+            cloud_name=st.secrets["cloudinary"]["cloud_name"],
+            api_key=st.secrets["cloudinary"]["api_key"],
+            api_secret=st.secrets["cloudinary"]["api_secret"],
+            secure=True,
+        )
+        ts_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+        public_id = f"imemsa_evidencias/P{order_id:03d}_A{act_id:02d}_{ts_tag}_{file_name.rsplit('.', 1)[0]}"
+
+        ext = file_name.lower().split(".")[-1]
+        res_type = "image" if ext in ("png", "jpg", "jpeg") else "raw"
+
+        result = cloudinary.uploader.upload(
+            file_bytes,
+            public_id=public_id,
+            resource_type=res_type,
+            overwrite=True,
+        )
+        url = result.get("secure_url", "")
+        print(f"[CLOUDINARY ✅] {file_name} → {url}")
+        return url
+    except ImportError:
+        print("[CLOUDINARY] Librería no instalada — pip install cloudinary")
+        return ""
+    except Exception as e:
+        print(f"[CLOUDINARY ERROR] {type(e).__name__}: {e}")
+        return ""
+
+
 def _save_evidence_to_sheets(
     order_id: int, act_id: int,
     file_bytes: bytes, file_name: str, username: str,
 ) -> str:
-    """Guarda la evidencia en Google Sheets. Retorna thumb_b64 si es imagen."""
+    """Guarda la evidencia: sube a Cloudinary + registra en Sheets."""
     try:
         thumb_b64 = _compress_image(file_bytes, file_name)
 
-        # Archivo completo en base64 solo si cabe en celda de Sheets
+        # Subir archivo completo a Cloudinary
+        file_url = _upload_to_cloudinary(file_bytes, file_name, order_id, act_id)
+
+        # Fallback: base64 en Sheets si cabe y Cloudinary no funcionó
         file_b64 = ""
-        candidate = base64.b64encode(file_bytes).decode()
-        if len(candidate) <= MAX_CELL_CHARS:
-            file_b64 = candidate
-        else:
-            print(f"[EVIDENCE] Archivo {file_name} ({len(candidate):,} chars) "
-                  f"excede límite, solo se guarda miniatura")
+        if not file_url:
+            candidate = base64.b64encode(file_bytes).decode()
+            if len(candidate) <= MAX_CELL_CHARS:
+                file_b64 = candidate
+
+        # Guardar en hoja: file_b64 contiene URL de Cloudinary o base64
+        file_data = file_url or file_b64
 
         ws = _get_evidencias_sheet()
         if not ws:
@@ -518,17 +558,16 @@ def _save_evidence_to_sheets(
         is_image  = "1" if ext_check in ("png", "jpg", "jpeg") else "0"
         ws.append_row(
             [str(order_id), str(act_id), file_name, user_name, ts,
-             thumb_b64, is_image, file_b64],
+             thumb_b64, is_image, file_data],
             value_input_option="RAW",
         )
-        # Invalidar cache
         st.session_state.pop("_evidencias_rows", None)
+        storage = "Cloudinary" if file_url else ("Sheets" if file_b64 else "solo miniatura")
         print(f"[EVIDENCE SAVED ✅] order={order_id} act={act_id} file={file_name} "
-              f"completo={'sí' if file_b64 else 'no (miniatura)'}")
+              f"→ {storage}")
         return thumb_b64
     except Exception as e:
         print(f"[EVIDENCE SAVE ERROR] {type(e).__name__}: {e}")
-        print(f"[EVIDENCE SAVE ERROR] {e}")
         import traceback; traceback.print_exc()
         return ""
 
@@ -637,7 +676,23 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                     )
 
                 # ── BOTÓN DE DESCARGA ────────────────────────────
-                if file_b64:
+                if file_b64 and file_b64.startswith("http"):
+                    # ✅ Archivo en Cloudinary — enlace directo
+                    st.markdown(
+                        f'<a href="{file_b64}" target="_blank" '
+                        f'style="display:block;text-align:center;padding:8px 12px;margin-top:6px;'
+                        f'background:linear-gradient(135deg,#0D2B6E,#2563EB);color:#fff;'
+                        f'border-radius:8px;font-size:.80rem;font-weight:700;'
+                        f'text-decoration:none;font-family:\'Source Sans 3\',sans-serif;'
+                        f'transition:opacity .2s;"'
+                        f' onmouseover="this.style.opacity=\'0.85\'"'
+                        f' onmouseout="this.style.opacity=\'1\'">'
+                        f'⬇️&nbsp; Descargar {name}'
+                        f'</a>',
+                        unsafe_allow_html=True,
+                    )
+                elif file_b64:
+                    # 📦 Archivo en base64 (legacy o fallback)
                     try:
                         file_bytes = base64.b64decode(file_b64)
                         mime = _get_mime_type(name)
@@ -652,6 +707,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                     except Exception as e:
                         st.caption(f"⚠️ Error: {e}")
                 elif is_image and thumb_b64 and not ev.get("legacy"):
+                    # 🖼️ Descargar miniatura
                     try:
                         thumb_bytes = base64.b64decode(thumb_b64)
                         st.download_button(
