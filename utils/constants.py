@@ -37,7 +37,7 @@ USERS: dict[str, dict] = {
     },
     "jespinoza": {
         "password_hash": _h("1967Jep1"),
-        "name": "Jaime Espinoza",
+        "name": "Jaime Espinosa",
         "role": "Líder Comercial",
         "email": "jespinoza@imemsa.com.mx",
         "can_create_orders": False,
@@ -55,7 +55,7 @@ USERS: dict[str, dict] = {
     },
     "cmuniz": {
         "password_hash": _h("Motor3s"),
-        "name": "Claudia Muñoz",
+        "name": "Claudia Muñiz",
         "role": "Líder Logística",
         "email": "cmuniz@imemsa.com.mx",
         "can_create_orders": False,
