@@ -456,23 +456,34 @@ def _get_evidencias_sheet():
         import streamlit as st
         client = _get_client()
         sh = client.open_by_key(st.secrets["gsheets"]["spreadsheet_id"])
+
+        # Paso 1: Abrir o crear la hoja
+        ws = None
         try:
             ws = sh.worksheet("evidencias_data")
-            # Migración: agregar columnas nuevas si no existen
-            headers = ws.row_values(1)
-            next_col = len(headers) + 1
-            if "file_b64" not in headers:
-                ws.update_cell(1, next_col, "file_b64")
-                next_col += 1
-                print("[EVIDENCIAS SHEET] Columna 'file_b64' agregada (migración)")
-            if "drive_file_id" not in headers:
-                ws.update_cell(1, next_col, "drive_file_id")
-                print("[EVIDENCIAS SHEET] Columna 'drive_file_id' agregada (migración)")
         except Exception:
+            # La hoja no existe — crearla
             ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=9)
             ws.update("A1:I1", [["order_id", "act_id", "filename",
                                   "user", "ts", "thumb_b64", "is_image",
                                   "file_b64", "drive_file_id"]])
+            print("[EVIDENCIAS SHEET] Hoja creada desde cero")
+            return ws
+
+        # Paso 2: Migración de columnas (separado, no afecta el acceso)
+        try:
+            headers = ws.row_values(1)
+            if "file_b64" not in headers:
+                ws.update_cell(1, len(headers) + 1, "file_b64")
+                headers.append("file_b64")
+                print("[EVIDENCIAS SHEET] Columna 'file_b64' agregada")
+            if "drive_file_id" not in headers:
+                ws.update_cell(1, len(headers) + 1, "drive_file_id")
+                print("[EVIDENCIAS SHEET] Columna 'drive_file_id' agregada")
+        except Exception as e:
+            # La migración falló pero la hoja funciona — continuar sin migrar
+            print(f"[EVIDENCIAS SHEET] Migración omitida: {e}")
+
         return ws
     except Exception as e:
         print(f"[EVIDENCIAS SHEET ERROR] {e}")
