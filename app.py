@@ -504,7 +504,7 @@ def _get_evidencias_sheet():
 #  GOOGLE DRIVE — almacenamiento de evidencias
 # ══════════════════════════════════════════════════════════
 
-_DRIVE_FOLDER_NAME = "IMEMSA_Evidencias_Motores"
+_DRIVE_FOLDER_ID = "1u4sts-s7cSZFahUF2J-EWF2hLKEWpfUh"
 
 
 def _get_drive_service():
@@ -513,9 +513,7 @@ def _get_drive_service():
         from google.oauth2.service_account import Credentials
         from googleapiclient.discovery import build
 
-        # Construir credenciales directo desde secrets (no depender de gspread)
         creds_info = dict(st.secrets["gcp_service_account"])
-        # Asegurar que tenga los campos necesarios
         if "type" not in creds_info:
             creds_info["type"] = "service_account"
 
@@ -537,7 +535,6 @@ def _drive_available() -> bool:
     cached = st.session_state.get("_drive_api_ok")
     if cached is True:
         return True
-    # No cachear False — reintentar cada vez por si se acaba de habilitar
     try:
         from googleapiclient.discovery import build  # noqa: F401
         service = _get_drive_service()
@@ -552,47 +549,9 @@ def _drive_available() -> bool:
         return False
 
 
-def _get_or_create_evidence_folder() -> str | None:
-    """Busca o crea la carpeta raíz de evidencias en Google Drive.
-    Retorna el folder_id o None si falla. Cache en session_state (se limpia al reiniciar)."""
-    if st.session_state.get("_drive_folder_id"):
-        return st.session_state["_drive_folder_id"]
-    try:
-        service = _get_drive_service()
-        if not service:
-            return None
-        # Buscar carpeta existente
-        query = (f"name='{_DRIVE_FOLDER_NAME}' "
-                 f"and mimeType='application/vnd.google-apps.folder' "
-                 f"and trashed=false")
-        results = service.files().list(
-            q=query, fields="files(id, name)", spaces="drive",
-        ).execute()
-        files = results.get("files", [])
-        if files:
-            folder_id = files[0]["id"]
-            st.session_state["_drive_folder_id"] = folder_id
-            print(f"[DRIVE] Carpeta encontrada: {folder_id}")
-            return folder_id
-        # Crear carpeta nueva
-        metadata = {
-            "name": _DRIVE_FOLDER_NAME,
-            "mimeType": "application/vnd.google-apps.folder",
-        }
-        folder = service.files().create(body=metadata, fields="id").execute()
-        folder_id = folder["id"]
-        # Hacer la carpeta accesible con enlace
-        service.permissions().create(
-            fileId=folder_id,
-            body={"type": "anyone", "role": "reader"},
-        ).execute()
-        st.session_state["_drive_folder_id"] = folder_id
-        print(f"[DRIVE] Carpeta creada: {folder_id}")
-        return folder_id
-    except Exception as e:
-        st.session_state["_drive_error"] = f"❌ Drive Folder: {type(e).__name__}: {e}"
-        print(f"[DRIVE FOLDER ERROR] {e}")
-        return None
+def _get_or_create_evidence_folder() -> str:
+    """Retorna el ID de la carpeta compartida en Google Drive."""
+    return _DRIVE_FOLDER_ID
 
 
 def _upload_evidence_to_drive(
@@ -622,12 +581,7 @@ def _upload_evidence_to_drive(
             body=metadata, media_body=media, fields="id",
         ).execute()
         file_id = uploaded["id"]
-        # Permiso: cualquier persona con el enlace puede ver/descargar
-        service.permissions().create(
-            fileId=file_id,
-            body={"type": "anyone", "role": "reader"},
-        ).execute()
-        print(f"[DRIVE UPLOAD] {drive_name} → id={file_id} ({len(file_bytes):,} bytes)")
+        print(f"[DRIVE UPLOAD ✅] {drive_name} → id={file_id} ({len(file_bytes):,} bytes)")
         return file_id
     except Exception as e:
         st.session_state["_drive_error"] = f"❌ Drive Upload: {type(e).__name__}: {e}"
