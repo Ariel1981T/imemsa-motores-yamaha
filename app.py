@@ -514,7 +514,7 @@ def _get_drive_service():
         from googleapiclient.discovery import build
 
         # Construir credenciales directo desde secrets (no depender de gspread)
-        creds_info = dict(st.secrets["gsheets"])
+        creds_info = dict(st.secrets["gcp_service_account"])
         # Asegurar que tenga los campos necesarios
         if "type" not in creds_info:
             creds_info["type"] = "service_account"
