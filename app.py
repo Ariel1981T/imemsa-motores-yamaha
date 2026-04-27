@@ -450,10 +450,13 @@ def _compress_image(file_bytes: bytes, file_name: str,
 
 
 def _get_evidencias_sheet():
-    """Abre (o crea) la hoja evidencias_data en el mismo spreadsheet."""
+    """Abre (o crea) la hoja evidencias_data en el mismo spreadsheet.
+    Cachea el objeto en session_state para evitar llamadas repetidas a la API."""
+    # Cache en session_state — se limpia al reiniciar la sesión
+    if st.session_state.get("_evidencias_ws") is not None:
+        return st.session_state["_evidencias_ws"]
     try:
         from utils.sheets_manager import _get_client
-        import streamlit as st
         client = _get_client()
         sh = client.open_by_key(st.secrets["gsheets"]["spreadsheet_id"])
 
@@ -461,14 +464,20 @@ def _get_evidencias_sheet():
         ws = None
         try:
             ws = sh.worksheet("evidencias_data")
-        except Exception:
-            # La hoja no existe — crearla
-            ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=9)
-            ws.update("A1:I1", [["order_id", "act_id", "filename",
-                                  "user", "ts", "thumb_b64", "is_image",
-                                  "file_b64", "drive_file_id"]])
-            print("[EVIDENCIAS SHEET] Hoja creada desde cero")
-            return ws
+        except Exception as e1:
+            try:
+                ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=9)
+                ws.update("A1:I1", [["order_id", "act_id", "filename",
+                                      "user", "ts", "thumb_b64", "is_image",
+                                      "file_b64", "drive_file_id"]])
+                print("[EVIDENCIAS SHEET] Hoja creada desde cero")
+                st.session_state["_evidencias_ws"] = ws
+                return ws
+            except Exception as e2:
+                st.session_state["_drive_error"] = (
+                    f"❌ evidencias_data: No se pudo abrir ({e1}) ni crear ({e2})"
+                )
+                return None
 
         # Paso 2: Migración de columnas (separado, no afecta el acceso)
         try:
@@ -476,16 +485,17 @@ def _get_evidencias_sheet():
             if "file_b64" not in headers:
                 ws.update_cell(1, len(headers) + 1, "file_b64")
                 headers.append("file_b64")
-                print("[EVIDENCIAS SHEET] Columna 'file_b64' agregada")
             if "drive_file_id" not in headers:
                 ws.update_cell(1, len(headers) + 1, "drive_file_id")
-                print("[EVIDENCIAS SHEET] Columna 'drive_file_id' agregada")
         except Exception as e:
-            # La migración falló pero la hoja funciona — continuar sin migrar
             print(f"[EVIDENCIAS SHEET] Migración omitida: {e}")
 
+        st.session_state["_evidencias_ws"] = ws
         return ws
     except Exception as e:
+        st.session_state["_drive_error"] = (
+            f"❌ evidencias_data ERROR: {type(e).__name__}: {e}"
+        )
         print(f"[EVIDENCIAS SHEET ERROR] {e}")
         return None
 
@@ -644,7 +654,8 @@ def _save_evidence_to_sheets(
         # SIEMPRE guardar metadatos en la hoja (con o sin drive_file_id)
         ws = _get_evidencias_sheet()
         if not ws:
-            st.session_state["_drive_error"] = "❌ No se pudo acceder a la hoja evidencias_data."
+            if not st.session_state.get("_drive_error"):
+                st.session_state["_drive_error"] = "❌ No se pudo acceder a la hoja evidencias_data."
             return ""
         ts = datetime.now().strftime("%d/%m/%Y %H:%M")
         user_name = USERS.get(username, {}).get("name", username)
@@ -657,6 +668,8 @@ def _save_evidence_to_sheets(
         )
         print(f"[EVIDENCE SAVED ✅] order={order_id} act={act_id} "
               f"file={file_name} drive_id={drive_file_id or '(sin Drive)'}")
+        # Invalidar cache de evidencias para que se recarguen
+        st.session_state.pop("_evidencias_rows", None)
         return thumb_b64
     except Exception as e:
         st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
@@ -665,17 +678,29 @@ def _save_evidence_to_sheets(
         return ""
 
 
-def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
-    """Lee todas las evidencias de una actividad desde la hoja evidencias_data."""
+def _load_all_evidences() -> list[list[str]]:
+    """Carga TODAS las evidencias una sola vez por sesión.
+    Retorna las filas crudas del sheet. Se invalida al guardar nueva evidencia."""
+    if "_evidencias_rows" in st.session_state:
+        return st.session_state["_evidencias_rows"]
     try:
         ws = _get_evidencias_sheet()
         if not ws:
             return []
-        # get_all_values() para no truncar base64 largo (get_all_records trunca)
         all_rows = ws.get_all_values()
+        st.session_state["_evidencias_rows"] = all_rows
+        return all_rows
+    except Exception as e:
+        print(f"[EVIDENCE LOAD ALL ERROR] {e}")
+        return []
+
+
+def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
+    """Lee las evidencias de una actividad desde el cache local."""
+    try:
+        all_rows = _load_all_evidences()
         if len(all_rows) < 2:
             return []
-        # Encabezados dinámicos
         COL = {h: i for i, h in enumerate(all_rows[0])}
         result = []
         for row in all_rows[1:]:
