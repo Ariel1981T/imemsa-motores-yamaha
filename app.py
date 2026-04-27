@@ -402,23 +402,24 @@ def _log_history(act: dict, username: str, action: str, detail: str = "") -> Non
 
 
 # ══════════════════════════════════════════════════════════
-#  GALERÍA DE EVIDENCIAS — almacenada en Google Sheets
-#  Hoja: evidencias_data  (una fila por imagen)
-#  Columnas: order_id | act_id | filename | user | ts | thumb_b64
+#  GALERÍA DE EVIDENCIAS — 100% Google Sheets
+#  Hoja: evidencias_data
+#  Columnas: order_id | act_id | filename | user | ts | thumb_b64 | is_image | file_b64
 # ══════════════════════════════════════════════════════════
 
+MAX_CELL_CHARS = 45000  # Google Sheets ~50K/celda; margen de seguridad
+
+
 def _compress_image(file_bytes: bytes, file_name: str,
-                    max_width: int = 400, quality: int = 45) -> str:
+                    max_width: int = 300, quality: int = 35) -> str:
     """
-    Comprime la imagen y la retorna como base64.
-    Si Pillow no está disponible, usa base64 directo (fallback).
+    Comprime la imagen y la retorna como base64 (miniatura).
     Retorna "" si no es imagen.
     """
     ext = file_name.lower().split(".")[-1]
     if ext not in ("png", "jpg", "jpeg"):
         return ""
     try:
-        # Intento 1: comprimir con Pillow
         from PIL import Image
         img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
         w, h = img.size
@@ -428,31 +429,20 @@ def _compress_image(file_bytes: bytes, file_name: str,
         img.save(buf, format="JPEG", quality=quality, optimize=True)
         compressed = buf.getvalue()
         b64 = base64.b64encode(compressed).decode()
-        print(f"[IMG COMPRESS] {file_name}: {len(file_bytes):,} → {len(compressed):,} bytes")
+        print(f"[IMG COMPRESS] {file_name}: {len(file_bytes):,} → {len(compressed):,} bytes"
+              f" → {len(b64):,} chars b64")
         return b64
     except ImportError:
-        # Fallback: Pillow no instalado — guardar base64 directo
-        # Solo si el archivo no es demasiado grande (<500KB)
-        if len(file_bytes) <= 500_000:
-            b64 = base64.b64encode(file_bytes).decode()
-            print(f"[IMG B64 FALLBACK] {file_name}: {len(file_bytes):,} bytes → {len(b64):,} chars")
-            return b64
-        else:
-            print(f"[IMG TOO LARGE] {file_name}: {len(file_bytes):,} bytes, se necesita Pillow")
-            return base64.b64encode(file_bytes).decode()  # intentar de todas formas
+        if len(file_bytes) <= 30_000:
+            return base64.b64encode(file_bytes).decode()
+        return ""
     except Exception as e:
         print(f"[IMG COMPRESS ERROR] {e}")
-        # Último fallback: base64 directo
-        try:
-            return base64.b64encode(file_bytes).decode()
-        except Exception:
-            return ""
+        return ""
 
 
 def _get_evidencias_sheet():
-    """Abre (o crea) la hoja evidencias_data en el mismo spreadsheet.
-    Cachea el objeto en session_state para evitar llamadas repetidas a la API."""
-    # Cache en session_state — se limpia al reiniciar la sesión
+    """Abre (o crea) la hoja evidencias_data. Cacheada en session_state."""
     if st.session_state.get("_evidencias_ws") is not None:
         return st.session_state["_evidencias_ws"]
     try:
@@ -460,166 +450,62 @@ def _get_evidencias_sheet():
         client = _get_client()
         sh = client.open_by_key(st.secrets["gsheets"]["spreadsheet_id"])
 
-        # Paso 1: Abrir o crear la hoja
         ws = None
         try:
             ws = sh.worksheet("evidencias_data")
-        except Exception as e1:
-            try:
-                ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=9)
-                ws.update("A1:I1", [["order_id", "act_id", "filename",
-                                      "user", "ts", "thumb_b64", "is_image",
-                                      "file_b64", "drive_file_id"]])
-                print("[EVIDENCIAS SHEET] Hoja creada desde cero")
-                st.session_state["_evidencias_ws"] = ws
-                return ws
-            except Exception as e2:
-                st.session_state["_drive_error"] = (
-                    f"❌ evidencias_data: No se pudo abrir ({e1}) ni crear ({e2})"
-                )
-                return None
+        except Exception:
+            ws = sh.add_worksheet(title="evidencias_data", rows=500, cols=8)
+            ws.update("A1:H1", [["order_id", "act_id", "filename",
+                                  "user", "ts", "thumb_b64", "is_image",
+                                  "file_b64"]])
+            st.session_state["_evidencias_ws"] = ws
+            return ws
 
-        # Paso 2: Migración de columnas (separado, no afecta el acceso)
+        # Migración: agregar file_b64 si no existe
         try:
             headers = ws.row_values(1)
             if "file_b64" not in headers:
                 ws.update_cell(1, len(headers) + 1, "file_b64")
-                headers.append("file_b64")
-            if "drive_file_id" not in headers:
-                ws.update_cell(1, len(headers) + 1, "drive_file_id")
-        except Exception as e:
-            print(f"[EVIDENCIAS SHEET] Migración omitida: {e}")
+        except Exception:
+            pass
 
         st.session_state["_evidencias_ws"] = ws
         return ws
     except Exception as e:
-        st.session_state["_drive_error"] = (
-            f"❌ evidencias_data ERROR: {type(e).__name__}: {e}"
-        )
-        print(f"[EVIDENCIAS SHEET ERROR] {e}")
+        st.session_state["_drive_error"] = f"❌ Error evidencias_data: {type(e).__name__}: {e}"
         return None
 
 
-# ══════════════════════════════════════════════════════════
-#  GOOGLE DRIVE — almacenamiento de evidencias
-# ══════════════════════════════════════════════════════════
-
-_DRIVE_FOLDER_ID = "1u4sts-s7cSZFahUF2J-EWF2hLKEWpfUh"
-
-
-def _get_drive_service():
-    """Crea un servicio de Google Drive API usando las credenciales del service account."""
-    try:
-        from google.oauth2.service_account import Credentials
-        from googleapiclient.discovery import build
-
-        creds_info = dict(st.secrets["gcp_service_account"])
-        if "type" not in creds_info:
-            creds_info["type"] = "service_account"
-
-        scopes = [
-            "https://www.googleapis.com/auth/drive",
-            "https://www.googleapis.com/auth/drive.file",
-        ]
-        creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
-        service = build("drive", "v3", credentials=creds, cache_discovery=False)
-        return service
-    except Exception as e:
-        st.session_state["_drive_error"] = f"❌ Drive Service: {type(e).__name__}: {e}"
-        print(f"[DRIVE SERVICE ERROR] {e}")
-        return None
-
-
-def _drive_available() -> bool:
-    """Verifica si el API de Drive está realmente disponible y funcional."""
-    cached = st.session_state.get("_drive_api_ok")
-    if cached is True:
-        return True
-    try:
-        from googleapiclient.discovery import build  # noqa: F401
-        service = _get_drive_service()
-        if not service:
-            return False
-        service.files().list(pageSize=1, fields="files(id)").execute()
-        st.session_state["_drive_api_ok"] = True
-        print("[DRIVE] API verificada ✅")
-        return True
-    except Exception as e:
-        print(f"[DRIVE] API NO disponible: {e}")
-        return False
-
-
-def _get_or_create_evidence_folder() -> str:
-    """Retorna el ID de la carpeta compartida en Google Drive."""
-    return _DRIVE_FOLDER_ID
-
-
-def _upload_evidence_to_drive(
-    file_bytes: bytes, file_name: str,
-    order_id: int, act_id: int,
-) -> str | None:
-    """Sube un archivo de evidencia a Google Drive.
-    Retorna el file_id o None si falla."""
-    try:
-        service = _get_drive_service()
-        if not service:
-            return None
-        folder_id = _get_or_create_evidence_folder()
-        if not folder_id:
-            return None
-        # Nombre descriptivo en Drive: P003_A05_20260424_foto.jpg
-        ts_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
-        drive_name = f"P{order_id:03d}_A{act_id:02d}_{ts_tag}_{file_name}"
-        mime = _get_mime_type(file_name)
-        from googleapiclient.http import MediaInMemoryUpload
-        media = MediaInMemoryUpload(file_bytes, mimetype=mime, resumable=True)
-        metadata = {
-            "name": drive_name,
-            "parents": [folder_id],
-        }
-        uploaded = service.files().create(
-            body=metadata, media_body=media, fields="id",
-        ).execute()
-        file_id = uploaded["id"]
-        print(f"[DRIVE UPLOAD ✅] {drive_name} → id={file_id} ({len(file_bytes):,} bytes)")
-        return file_id
-    except Exception as e:
-        st.session_state["_drive_error"] = f"❌ Drive Upload: {type(e).__name__}: {e}"
-        print(f"[DRIVE UPLOAD ERROR] {e}")
-        return None
+def _get_mime_type(file_name: str) -> str:
+    """Retorna el MIME type basado en la extensión del archivo."""
+    ext = file_name.lower().split(".")[-1]
+    return {
+        "pdf": "application/pdf", "png": "image/png",
+        "jpg": "image/jpeg", "jpeg": "image/jpeg",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }.get(ext, "application/octet-stream")
 
 
 def _save_evidence_to_sheets(
     order_id: int, act_id: int,
     file_bytes: bytes, file_name: str, username: str,
 ) -> str:
-    """
-    Guarda la evidencia:
-      1. Sube el archivo a Google Drive.
-      2. SIEMPRE guarda metadatos + miniatura + drive_file_id en evidencias_data.
-    Retorna thumb_b64 si es imagen, "" si es otro tipo.
-    """
+    """Guarda la evidencia en Google Sheets. Retorna thumb_b64 si es imagen."""
     try:
         thumb_b64 = _compress_image(file_bytes, file_name)
 
-        # Subir archivo a Google Drive
-        drive_file_id = ""
-        try:
-            drive_file_id = _upload_evidence_to_drive(
-                file_bytes, file_name, order_id, act_id,
-            ) or ""
-        except Exception as e:
-            print(f"[EVIDENCE] Error en Drive upload: {e}")
+        # Archivo completo en base64 solo si cabe en celda de Sheets
+        file_b64 = ""
+        candidate = base64.b64encode(file_bytes).decode()
+        if len(candidate) <= MAX_CELL_CHARS:
+            file_b64 = candidate
+        else:
+            print(f"[EVIDENCE] Archivo {file_name} ({len(candidate):,} chars) "
+                  f"excede límite, solo se guarda miniatura")
 
-        if not drive_file_id:
-            print(f"[EVIDENCE] ⚠️ Drive upload falló para {file_name}, "
-                  f"se guardan solo metadatos")
-
-        # SIEMPRE guardar metadatos en la hoja (con o sin drive_file_id)
         ws = _get_evidencias_sheet()
         if not ws:
-            if not st.session_state.get("_drive_error"):
-                st.session_state["_drive_error"] = "❌ No se pudo acceder a la hoja evidencias_data."
             return ""
         ts = datetime.now().strftime("%d/%m/%Y %H:%M")
         user_name = USERS.get(username, {}).get("name", username)
@@ -627,13 +513,13 @@ def _save_evidence_to_sheets(
         is_image  = "1" if ext_check in ("png", "jpg", "jpeg") else "0"
         ws.append_row(
             [str(order_id), str(act_id), file_name, user_name, ts,
-             thumb_b64, is_image, "", drive_file_id],
+             thumb_b64, is_image, file_b64],
             value_input_option="RAW",
         )
-        print(f"[EVIDENCE SAVED ✅] order={order_id} act={act_id} "
-              f"file={file_name} drive_id={drive_file_id or '(sin Drive)'}")
-        # Invalidar cache de evidencias para que se recarguen
+        # Invalidar cache
         st.session_state.pop("_evidencias_rows", None)
+        print(f"[EVIDENCE SAVED ✅] order={order_id} act={act_id} file={file_name} "
+              f"completo={'sí' if file_b64 else 'no (miniatura)'}")
         return thumb_b64
     except Exception as e:
         st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
@@ -643,8 +529,7 @@ def _save_evidence_to_sheets(
 
 
 def _load_all_evidences() -> list[list[str]]:
-    """Carga TODAS las evidencias una sola vez por sesión.
-    Retorna las filas crudas del sheet. Se invalida al guardar nueva evidencia."""
+    """Carga TODAS las evidencias una sola vez por sesión."""
     if "_evidencias_rows" in st.session_state:
         return st.session_state["_evidencias_rows"]
     try:
@@ -655,7 +540,7 @@ def _load_all_evidences() -> list[list[str]]:
         st.session_state["_evidencias_rows"] = all_rows
         return all_rows
     except Exception as e:
-        print(f"[EVIDENCE LOAD ALL ERROR] {e}")
+        print(f"[EVIDENCE LOAD ERROR] {e}")
         return []
 
 
@@ -674,15 +559,13 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
                     str(row[COL.get("act_id", 1)]) == str(act_id)):
                 thumb = row[COL["thumb_b64"]] if "thumb_b64" in COL and len(row) > COL["thumb_b64"] else ""
                 file_data = row[COL["file_b64"]] if "file_b64" in COL and len(row) > COL["file_b64"] else ""
-                drive_id = row[COL["drive_file_id"]] if "drive_file_id" in COL and len(row) > COL["drive_file_id"] else ""
                 result.append({
-                    "name":          row[COL.get("filename", 2)] if len(row) > 2 else "—",
-                    "user":          row[COL.get("user", 3)]     if len(row) > 3 else "—",
-                    "ts":            row[COL.get("ts",   4)]     if len(row) > 4 else "—",
-                    "thumb_b64":     thumb,
-                    "is_image":      row[COL.get("is_image", 6)] == "1" if len(row) > 6 else False,
-                    "file_b64":      file_data,
-                    "drive_file_id": drive_id,
+                    "name":      row[COL.get("filename", 2)] if len(row) > 2 else "—",
+                    "user":      row[COL.get("user", 3)]     if len(row) > 3 else "—",
+                    "ts":        row[COL.get("ts",   4)]     if len(row) > 4 else "—",
+                    "thumb_b64": thumb,
+                    "is_image":  row[COL.get("is_image", 6)] == "1" if len(row) > 6 else False,
+                    "file_b64":  file_data,
                 })
         return result
     except Exception as e:
@@ -690,37 +573,17 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
         return []
 
 
-def _get_mime_type(file_name: str) -> str:
-    """Retorna el MIME type basado en la extensión del archivo."""
-    ext = file_name.lower().split(".")[-1]
-    mime_map = {
-        "pdf":  "application/pdf",
-        "png":  "image/png",
-        "jpg":  "image/jpeg",
-        "jpeg": "image/jpeg",
-        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    }
-    return mime_map.get(ext, "application/octet-stream")
-
-
 def _render_evidence_gallery(act: dict, order_id: int) -> None:
-    """Muestra la galería de evidencias desde Google Sheets — visible para todos,
-    con descarga vía Google Drive o base64 fallback."""
-    # Cargar evidencias desde hoja evidencias_data
+    """Muestra la galería de evidencias con botón de descarga."""
     evidences = _load_evidences_for_act(order_id, act["id"])
 
     # Compatibilidad: evidencia antigua solo con nombre
     if not evidences and act.get("evidence_name"):
         evidences = [{
-            "name":     act["evidence_name"],
-            "user":     "—",
-            "ts":       act.get("completion_date", "—"),
-            "thumb_b64": "",
-            "is_image": False,
-            "file_b64": "",
-            "drive_file_id": "",
-            "legacy":   True,
+            "name": act["evidence_name"], "user": "—",
+            "ts": act.get("completion_date", "—"),
+            "thumb_b64": "", "is_image": False, "file_b64": "",
+            "legacy": True,
         }]
 
     if not evidences:
@@ -730,13 +593,12 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
         cols = st.columns(min(len(evidences), 3))
         for i, ev in enumerate(evidences):
             with cols[i % 3]:
-                name          = ev.get("name", "archivo")
-                user          = ev.get("user", "—")
-                ts            = ev.get("ts", "—")
-                thumb_b64     = ev.get("thumb_b64", "")
-                is_image      = ev.get("is_image", False)
-                file_b64      = ev.get("file_b64", "")
-                drive_file_id = ev.get("drive_file_id", "")
+                name      = ev.get("name", "archivo")
+                user      = ev.get("user", "—")
+                ts        = ev.get("ts", "—")
+                thumb_b64 = ev.get("thumb_b64", "")
+                is_image  = ev.get("is_image", False)
+                file_b64  = ev.get("file_b64", "")
 
                 # ── VISTA PREVIA ──────────────────────────────
                 if ev.get("legacy"):
@@ -745,34 +607,19 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         f'border-radius:8px;text-align:center;">'
                         f'<div style="font-size:1.2rem;">📎</div>'
                         f'<div style="font-size:.72rem;color:#92400E;font-weight:600;">{name}</div>'
-                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div>'
-                        f'<div style="font-size:.65rem;color:#9CA3AF;margin-top:4px;">'
-                        f'<em>Evidencia registrada sin archivo adjunto</em></div></div>',
+                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}</div></div>',
                         unsafe_allow_html=True,
                     )
                 elif is_image and thumb_b64:
-                    ext_img  = name.lower().split(".")[-1]
-                    mime_img = "image/jpeg" if ext_img in ("jpg","jpeg") else "image/png"
                     st.markdown(
                         f'<div style="border-radius:8px;border:2px solid #D1D9E8;overflow:hidden;">'
-                        f'<img src="data:{mime_img};base64,{thumb_b64}" style="width:100%;" alt="{name}"/>'
+                        f'<img src="data:image/jpeg;base64,{thumb_b64}" style="width:100%;" alt="{name}"/>'
                         f'</div>'
                         f'<div style="font-size:.70rem;color:#6B7280;margin-top:4px;">'
                         f'📸 {name}<br>👤 {user} · {ts}</div>',
                         unsafe_allow_html=True,
                     )
-                elif is_image and not thumb_b64:
-                    st.markdown(
-                        f'<div style="padding:10px;background:#EEF6FF;border:1.5px solid #93C5FD;'
-                        f'border-radius:8px;text-align:center;">'
-                        f'<div style="font-size:1.4rem;">🖼️</div>'
-                        f'<div style="font-size:.72rem;color:#1E40AF;font-weight:600;">{name}</div>'
-                        f'<div style="font-size:.68rem;color:#6B7280;">👤 {user} · {ts}<br>'
-                        f'<em>Vista previa no disponible</em></div></div>',
-                        unsafe_allow_html=True,
-                    )
                 else:
-                    # Archivo no-imagen (PDF, Excel, Word)
                     ext_icon = {"pdf": "📕", "xlsx": "📊", "docx": "📝"}.get(
                         name.lower().split(".")[-1], "📄")
                     st.markdown(
@@ -785,24 +632,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                     )
 
                 # ── BOTÓN DE DESCARGA ────────────────────────────
-                if drive_file_id:
-                    # ✅ Archivo almacenado en Google Drive — enlace de descarga directa
-                    download_url = f"https://drive.google.com/uc?export=download&id={drive_file_id}"
-                    st.markdown(
-                        f'<a href="{download_url}" target="_blank" '
-                        f'style="display:block;text-align:center;padding:8px 12px;margin-top:6px;'
-                        f'background:linear-gradient(135deg,#0D2B6E,#2563EB);color:#fff;'
-                        f'border-radius:8px;font-size:.80rem;font-weight:700;'
-                        f'text-decoration:none;font-family:\'Source Sans 3\',sans-serif;'
-                        f'transition:opacity .2s;"'
-                        f' onmouseover="this.style.opacity=\'0.85\'"'
-                        f' onmouseout="this.style.opacity=\'1\'">'
-                        f'⬇️&nbsp; Descargar {name}'
-                        f'</a>',
-                        unsafe_allow_html=True,
-                    )
-                elif file_b64:
-                    # 📦 Archivo completo almacenado en Sheets (b64)
+                if file_b64:
                     try:
                         file_bytes = base64.b64decode(file_b64)
                         mime = _get_mime_type(name)
@@ -815,24 +645,20 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                             use_container_width=True,
                         )
                     except Exception as e:
-                        st.caption(f"⚠️ Error al preparar descarga: {e}")
+                        st.caption(f"⚠️ Error: {e}")
                 elif is_image and thumb_b64 and not ev.get("legacy"):
-                    # 🖼️ Fallback: descargar la miniatura para evidencias anteriores
                     try:
                         thumb_bytes = base64.b64decode(thumb_b64)
-                        dl_name = name.rsplit(".", 1)[0] + ".jpg"
                         st.download_button(
                             label=f"⬇️  Descargar {name}",
                             data=thumb_bytes,
-                            file_name=dl_name,
+                            file_name=name.rsplit(".", 1)[0] + ".jpg",
                             mime="image/jpeg",
-                            key=f"dl_thumb_{order_id}_{act['id']}_{i}",
+                            key=f"dl_t_{order_id}_{act['id']}_{i}",
                             use_container_width=True,
                         )
                     except Exception as e:
-                        st.caption(f"⚠️ Error al preparar descarga: {e}")
-                elif not ev.get("legacy"):
-                    pass  # Sin datos de descarga disponibles
+                        st.caption(f"⚠️ Error: {e}")
 
 
 def _export_order_excel(order: dict) -> bytes:
@@ -1729,10 +1555,10 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
-    # Mostrar error si quedó guardado
+    # Mostrar error de Drive si quedó guardado
     if st.session_state.get("_drive_error"):
         st.error(st.session_state["_drive_error"])
-        if st.button("✖ Cerrar aviso", key="close_drive_err"):
+        if st.button("✖ Cerrar error", key="close_drive_err"):
             del st.session_state["_drive_error"]
             st.rerun()
 
@@ -1926,7 +1752,6 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                             st.success(f"✅ Actividad cerrada. {msg2}{ev_msg}")
                         else:
                             st.warning(msg2)
-                        # Guardar SIEMPRE después del cierre
                         _app_save(data)
                         st.rerun()
                     else:
