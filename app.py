@@ -43,68 +43,8 @@ def _app_data() -> dict:
 
 
 def _apply_data_patches(data: dict) -> None:
-    """Correcciones puntuales de datos. Se ejecuta una sola vez al cargar."""
-    # Flag para no repetir el parche
-    if st.session_state.get("_patches_v3_done"):
-        return
-    st.session_state["_patches_v3_done"] = True
-
-    orders = data.get("orders", [])
-    patched = False
-
-    # Patch 1: eliminar pedidos de prueba (006, 007, 008)
-    remove_numbers = {"IMEMSA-YAM-2026-006", "IMEMSA-YAM-2026-007", "IMEMSA-YAM-2026-008"}
-    before = len(orders)
-    data["orders"] = [
-        o for o in orders
-        if o.get("order_number") not in remove_numbers
-    ]
-    removed = before - len(data["orders"])
-    if removed:
-        patched = True
-        print(f"[DATA PATCH] {removed} pedido(s) eliminado(s)")
-
-    # Patch 2: corregir consecutivo para que el próximo sea 006
-    if data.get("last_order_seq", 0) != 5:
-        data["last_order_seq"] = 5
-        patched = True
-
-    # Patch 3: limpiar evidencias de prueba de la hoja evidencias_data
-    try:
-        ws = _get_evidencias_sheet()
-        if ws:
-            all_rows = ws.get_all_values()
-            if len(all_rows) > 1:
-                COL = {h: i for i, h in enumerate(all_rows[0])}
-                oid_col = COL.get("order_id", 0)
-                # IDs internos de pedidos que ya no existen
-                valid_ids = {str(o["id"]) for o in data["orders"]}
-                rows_to_keep = [all_rows[0]]  # encabezados
-                for row in all_rows[1:]:
-                    if len(row) > oid_col and row[oid_col] in valid_ids:
-                        rows_to_keep.append(row)
-                deleted_rows = len(all_rows) - len(rows_to_keep)
-                if deleted_rows > 0:
-                    # Reescribir la hoja limpia
-                    ws.clear()
-                    if rows_to_keep:
-                        ws.update(f"A1:I{len(rows_to_keep)}", rows_to_keep)
-                    patched = True
-                    # Invalidar cache
-                    st.session_state.pop("_evidencias_rows", None)
-                    st.session_state.pop("_evidencias_ws", None)
-                    print(f"[DATA PATCH] {deleted_rows} filas de evidencia eliminadas")
-    except Exception as e:
-        print(f"[DATA PATCH] Error limpiando evidencias: {e}")
-
-    if patched:
-        try:
-            from utils.sheets_manager import _gsheets_available, save_to_sheets
-            if _gsheets_available():
-                save_to_sheets(data)
-                print("[DATA PATCH] Guardado en Sheets exitosamente")
-        except Exception as e:
-            print(f"[DATA PATCH] Error al guardar: {e}")
+    """Correcciones de datos — sin parches pendientes."""
+    pass
 
 
 def _app_save(data: dict) -> None:
