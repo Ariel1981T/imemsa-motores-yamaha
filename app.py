@@ -43,36 +43,8 @@ def _app_data() -> dict:
 
 
 def _apply_data_patches(data: dict) -> None:
-    """Correcciones puntuales de datos. Se ejecuta una sola vez al cargar."""
-    orders = data.get("orders", [])
-    patched = False
-
-    # Patch: eliminar pedidos de prueba (006, 007 y 008)
-    remove_numbers = {"IMEMSA-YAM-2026-006", "IMEMSA-YAM-2026-007", "IMEMSA-YAM-2026-008"}
-    before = len(orders)
-    data["orders"] = [
-        o for o in orders
-        if o.get("order_number") not in remove_numbers
-    ]
-    removed = before - len(data["orders"])
-    if removed:
-        patched = True
-        print(f"[DATA PATCH] {removed} pedido(s) eliminado(s): {remove_numbers}")
-
-    # Patch: corregir consecutivo para que el próximo sea 006
-    if data.get("last_order_seq", 0) != 5:
-        data["last_order_seq"] = 5
-        patched = True
-        print("[DATA PATCH] Consecutivo corregido a 5 (próximo pedido = 006)")
-
-    if patched:
-        try:
-            from utils.sheets_manager import _gsheets_available, save_to_sheets
-            if _gsheets_available():
-                save_to_sheets(data)
-                print("[DATA PATCH] Guardado en Sheets exitosamente")
-        except Exception as e:
-            print(f"[DATA PATCH] Error al guardar: {e}")
+    """Correcciones puntuales de datos. Ya aplicadas — sin parches pendientes."""
+    pass
 
 
 def _app_save(data: dict) -> None:
