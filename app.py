@@ -506,15 +506,12 @@ def _upload_to_cloudinary(file_bytes: bytes, file_name: str,
             secure=True,
         )
         ts_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
-        public_id = f"imemsa_evidencias/P{order_id:03d}_A{act_id:02d}_{ts_tag}_{file_name.rsplit('.', 1)[0]}"
-
-        ext = file_name.lower().split(".")[-1]
-        res_type = "image" if ext in ("png", "jpg", "jpeg") else "raw"
+        public_id = f"imemsa_evidencias/P{order_id:03d}_A{act_id:02d}_{ts_tag}_{file_name}"
 
         result = cloudinary.uploader.upload(
             file_bytes,
             public_id=public_id,
-            resource_type=res_type,
+            resource_type="raw",
             overwrite=True,
         )
         url = result.get("secure_url", "")
