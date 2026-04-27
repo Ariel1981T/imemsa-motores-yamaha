@@ -502,28 +502,29 @@ def _get_drive_service():
 
 def _drive_available() -> bool:
     """Verifica si el API de Drive está realmente disponible y funcional."""
-    if "_drive_api_ok" in st.session_state:
-        return st.session_state["_drive_api_ok"]
+    cached = st.session_state.get("_drive_api_ok")
+    if cached is True:
+        return True
+    # No cachear False — reintentar cada vez por si se acaba de habilitar
     try:
         from googleapiclient.discovery import build  # noqa: F401
         service = _get_drive_service()
         if not service:
-            st.session_state["_drive_api_ok"] = False
             return False
         service.files().list(pageSize=1, fields="files(id)").execute()
         st.session_state["_drive_api_ok"] = True
         print("[DRIVE] API verificada ✅")
         return True
     except Exception as e:
-        st.session_state["_drive_api_ok"] = False
         print(f"[DRIVE] API NO disponible: {e}")
         return False
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
 def _get_or_create_evidence_folder() -> str | None:
     """Busca o crea la carpeta raíz de evidencias en Google Drive.
-    Retorna el folder_id o None si falla."""
+    Retorna el folder_id o None si falla. Cache en session_state (se limpia al reiniciar)."""
+    if st.session_state.get("_drive_folder_id"):
+        return st.session_state["_drive_folder_id"]
     try:
         service = _get_drive_service()
         if not service:
@@ -538,6 +539,7 @@ def _get_or_create_evidence_folder() -> str | None:
         files = results.get("files", [])
         if files:
             folder_id = files[0]["id"]
+            st.session_state["_drive_folder_id"] = folder_id
             print(f"[DRIVE] Carpeta encontrada: {folder_id}")
             return folder_id
         # Crear carpeta nueva
@@ -552,6 +554,7 @@ def _get_or_create_evidence_folder() -> str | None:
             fileId=folder_id,
             body={"type": "anyone", "role": "reader"},
         ).execute()
+        st.session_state["_drive_folder_id"] = folder_id
         print(f"[DRIVE] Carpeta creada: {folder_id}")
         return folder_id
     except Exception as e:
@@ -605,23 +608,26 @@ def _save_evidence_to_sheets(
     """
     Guarda la evidencia:
       1. Sube el archivo a Google Drive.
-      2. Guarda metadatos + miniatura + drive_file_id en la hoja evidencias_data.
+      2. SIEMPRE guarda metadatos + miniatura + drive_file_id en evidencias_data.
     Retorna thumb_b64 si es imagen, "" si es otro tipo.
     """
     try:
         thumb_b64 = _compress_image(file_bytes, file_name)
 
         # Subir archivo a Google Drive
-        drive_file_id = _upload_evidence_to_drive(
-            file_bytes, file_name, order_id, act_id,
-        ) or ""
+        drive_file_id = ""
+        try:
+            drive_file_id = _upload_evidence_to_drive(
+                file_bytes, file_name, order_id, act_id,
+            ) or ""
+        except Exception as e:
+            print(f"[EVIDENCE] Error en Drive upload: {e}")
 
         if not drive_file_id:
-            st.session_state["_drive_error"] = (
-                "❌ No se pudo subir la evidencia. Intente de nuevo."
-            )
-            return ""
+            print(f"[EVIDENCE] ⚠️ Drive upload falló para {file_name}, "
+                  f"se guardan solo metadatos")
 
+        # SIEMPRE guardar metadatos en la hoja (con o sin drive_file_id)
         ws = _get_evidencias_sheet()
         if not ws:
             st.session_state["_drive_error"] = "❌ No se pudo acceder a la hoja evidencias_data."
@@ -636,7 +642,7 @@ def _save_evidence_to_sheets(
             value_input_option="RAW",
         )
         print(f"[EVIDENCE SAVED ✅] order={order_id} act={act_id} "
-              f"file={file_name} drive_id={drive_file_id}")
+              f"file={file_name} drive_id={drive_file_id or '(sin Drive)'}")
         return thumb_b64
     except Exception as e:
         st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
@@ -1915,10 +1921,11 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                                 send_activation_email(**alert)
                             ev_msg = " · Evidencia guardada 📸" if ev_name else ""
                             st.success(f"✅ Actividad cerrada. {msg2}{ev_msg}")
-                            _app_save(data)
-                            st.rerun()
                         else:
                             st.warning(msg2)
+                        # Guardar SIEMPRE después del cierre
+                        _app_save(data)
+                        st.rerun()
                     else:
                         st.error(msg)
 
