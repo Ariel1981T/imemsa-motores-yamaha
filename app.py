@@ -496,6 +496,7 @@ def _get_drive_service():
         service = build("drive", "v3", credentials=creds, cache_discovery=False)
         return service
     except Exception as e:
+        st.session_state["_drive_error"] = f"❌ Drive Service: {type(e).__name__}: {e}"
         print(f"[DRIVE SERVICE ERROR] {e}")
         return None
 
@@ -558,6 +559,7 @@ def _get_or_create_evidence_folder() -> str | None:
         print(f"[DRIVE] Carpeta creada: {folder_id}")
         return folder_id
     except Exception as e:
+        st.session_state["_drive_error"] = f"❌ Drive Folder: {type(e).__name__}: {e}"
         print(f"[DRIVE FOLDER ERROR] {e}")
         return None
 
@@ -597,6 +599,7 @@ def _upload_evidence_to_drive(
         print(f"[DRIVE UPLOAD] {drive_name} → id={file_id} ({len(file_bytes):,} bytes)")
         return file_id
     except Exception as e:
+        st.session_state["_drive_error"] = f"❌ Drive Upload: {type(e).__name__}: {e}"
         print(f"[DRIVE UPLOAD ERROR] {e}")
         return None
 
