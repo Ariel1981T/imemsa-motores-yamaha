@@ -45,22 +45,27 @@ def _app_data() -> dict:
 def _apply_data_patches(data: dict) -> None:
     """Correcciones puntuales de datos. Se ejecuta una sola vez al cargar."""
     orders = data.get("orders", [])
-    # Patch: eliminar pedido duplicado (order_number 007 / motor_model IMEMSA-YAM-2026-006)
-    to_remove = None
-    for order in orders:
-        # Coincide si aún tiene el 007 original O si ya se renombró a 006 con motor_model erróneo
-        is_target = (
-            order.get("order_number") == "IMEMSA-YAM-2026-007"
-            or (order.get("order_number") == "IMEMSA-YAM-2026-006"
-                and order.get("motor_model", "").strip() == "IMEMSA-YAM-2026-006")
-        )
-        if is_target:
-            to_remove = order
-            break
-    if to_remove:
-        orders.remove(to_remove)
-        print(f"[DATA PATCH] Pedido eliminado: {to_remove.get('order_number')} "
-              f"(motor_model={to_remove.get('motor_model')})")
+    patched = False
+
+    # Patch: eliminar pedidos de prueba (007 y 008)
+    remove_numbers = {"IMEMSA-YAM-2026-007", "IMEMSA-YAM-2026-008"}
+    before = len(orders)
+    data["orders"] = [
+        o for o in orders
+        if o.get("order_number") not in remove_numbers
+    ]
+    removed = before - len(data["orders"])
+    if removed:
+        patched = True
+        print(f"[DATA PATCH] {removed} pedido(s) eliminado(s): {remove_numbers}")
+
+    # Patch: corregir consecutivo para que el próximo sea 006
+    if data.get("last_order_seq", 0) != 5:
+        data["last_order_seq"] = 5
+        patched = True
+        print("[DATA PATCH] Consecutivo corregido a 5 (próximo pedido = 006)")
+
+    if patched:
         try:
             from utils.sheets_manager import _gsheets_available, save_to_sheets
             if _gsheets_available():
@@ -472,7 +477,7 @@ def _get_evidencias_sheet():
         st.session_state["_evidencias_ws"] = ws
         return ws
     except Exception as e:
-        st.session_state["_drive_error"] = f"❌ Error evidencias_data: {type(e).__name__}: {e}"
+        print(f"[EVIDENCIAS SHEET ERROR] {type(e).__name__}: {e}")
         return None
 
 
@@ -522,7 +527,7 @@ def _save_evidence_to_sheets(
               f"completo={'sí' if file_b64 else 'no (miniatura)'}")
         return thumb_b64
     except Exception as e:
-        st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
+        print(f"[EVIDENCE SAVE ERROR] {type(e).__name__}: {e}")
         print(f"[EVIDENCE SAVE ERROR] {e}")
         import traceback; traceback.print_exc()
         return ""
@@ -1555,12 +1560,6 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
-    # Mostrar error de Drive si quedó guardado
-    if st.session_state.get("_drive_error"):
-        st.error(st.session_state["_drive_error"])
-        if st.button("✖ Cerrar error", key="close_drive_err"):
-            del st.session_state["_drive_error"]
-            st.rerun()
 
     data     = _app_data()
     user     = st.session_state["user"]
