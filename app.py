@@ -501,11 +501,24 @@ def _get_drive_service():
 
 
 def _drive_available() -> bool:
-    """Verifica si el API de Drive está disponible."""
+    """Verifica si el API de Drive está realmente disponible y funcional."""
+    # Cache en session_state para no verificar en cada llamada
+    if "_drive_api_ok" in st.session_state:
+        return st.session_state["_drive_api_ok"]
     try:
         from googleapiclient.discovery import build  # noqa: F401
+        service = _get_drive_service()
+        if not service:
+            st.session_state["_drive_api_ok"] = False
+            return False
+        # Prueba real: listar 1 archivo para verificar que Drive API responde
+        service.files().list(pageSize=1, fields="files(id)").execute()
+        st.session_state["_drive_api_ok"] = True
+        print("[DRIVE] API verificada ✅")
         return True
-    except ImportError:
+    except Exception as e:
+        st.session_state["_drive_api_ok"] = False
+        print(f"[DRIVE] API NO disponible: {e}")
         return False
 
 
@@ -595,9 +608,10 @@ def _save_evidence_to_sheets(
     Guarda la evidencia:
       1. Sube el archivo a Google Drive (si disponible).
       2. Guarda metadatos + miniatura + drive_file_id en la hoja evidencias_data.
-      3. Fallback: si Drive no está disponible, guarda file_b64 en la hoja.
+      3. Fallback: guarda file_b64 en la hoja SOLO si cabe (< 45,000 chars).
     Retorna thumb_b64 si es imagen, "" si es otro tipo.
     """
+    MAX_CELL_CHARS = 45000  # Google Sheets limit = 50,000; margen de seguridad
     try:
         thumb_b64 = _compress_image(file_bytes, file_name)
 
@@ -608,12 +622,23 @@ def _save_evidence_to_sheets(
             drive_file_id = _upload_evidence_to_drive(
                 file_bytes, file_name, order_id, act_id,
             ) or ""
+            if drive_file_id:
+                print(f"[EVIDENCE] Archivo subido a Drive: {drive_file_id}")
+            else:
+                print("[EVIDENCE] Drive disponible pero la subida falló")
 
-        # Fallback: guardar base64 en hoja si Drive no funcionó
+        # Fallback: guardar base64 en hoja SOLO si cabe en la celda
         if not drive_file_id:
-            file_b64 = base64.b64encode(file_bytes).decode()
-            print(f"[EVIDENCE] Drive no disponible, usando file_b64 fallback "
-                  f"({len(file_b64):,} chars)")
+            candidate_b64 = base64.b64encode(file_bytes).decode()
+            if len(candidate_b64) <= MAX_CELL_CHARS:
+                file_b64 = candidate_b64
+                print(f"[EVIDENCE] Guardando file_b64 en Sheets "
+                      f"({len(file_b64):,} chars)")
+            else:
+                print(f"[EVIDENCE] ⚠️ Archivo muy grande para Sheets "
+                      f"({len(candidate_b64):,} chars > {MAX_CELL_CHARS:,}). "
+                      f"Solo se guarda miniatura. Habilite Google Drive API "
+                      f"para archivos grandes.")
 
         ws = _get_evidencias_sheet()
         if not ws:
@@ -628,13 +653,25 @@ def _save_evidence_to_sheets(
              thumb_b64, is_image, file_b64, drive_file_id],
             value_input_option="RAW",
         )
-        storage = "Drive" if drive_file_id else "Sheets(b64)"
+        storage = ("Drive" if drive_file_id
+                   else "Sheets(b64)" if file_b64
+                   else "solo miniatura")
         print(f"[EVIDENCE SAVED] order={order_id} act={act_id} file={file_name} "
               f"storage={storage}")
+
+        # Aviso al usuario si no se pudo guardar archivo completo
+        if not drive_file_id and not file_b64:
+            st.session_state["_drive_error"] = (
+                "⚠️ Evidencia registrada con miniatura. El archivo original es "
+                "muy grande para Google Sheets. Contacte al administrador para "
+                "habilitar Google Drive API y almacenar archivos completos."
+            )
+
         return thumb_b64
     except Exception as e:
         st.session_state["_drive_error"] = f"❌ Error al guardar evidencia: {type(e).__name__}: {e}"
         print(f"[EVIDENCE SAVE ERROR] {e}")
+        import traceback; traceback.print_exc()
         return ""
 
 
@@ -1713,10 +1750,14 @@ def _render_order_card(order: dict) -> None:
 # ══════════════════════════════════════════════════════════
 
 def page_activities() -> None:
-    # Mostrar error de Drive si quedó guardado
+    # Mostrar error/aviso de Drive si quedó guardado
     if st.session_state.get("_drive_error"):
-        st.error(st.session_state["_drive_error"])
-        if st.button("✖ Cerrar error", key="close_drive_err"):
+        msg = st.session_state["_drive_error"]
+        if msg.startswith("⚠️"):
+            st.warning(msg)
+        else:
+            st.error(msg)
+        if st.button("✖ Cerrar aviso", key="close_drive_err"):
             del st.session_state["_drive_error"]
             st.rerun()
 
