@@ -47,8 +47,8 @@ def _apply_data_patches(data: dict) -> None:
     orders = data.get("orders", [])
     patched = False
 
-    # Patch: eliminar pedidos de prueba (007 y 008)
-    remove_numbers = {"IMEMSA-YAM-2026-007", "IMEMSA-YAM-2026-008"}
+    # Patch: eliminar pedidos de prueba (006, 007 y 008)
+    remove_numbers = {"IMEMSA-YAM-2026-006", "IMEMSA-YAM-2026-007", "IMEMSA-YAM-2026-008"}
     before = len(orders)
     data["orders"] = [
         o for o in orders
