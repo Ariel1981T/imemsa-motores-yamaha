@@ -461,6 +461,7 @@ def _get_mime_type(file_name: str) -> str:
         "jpg": "image/jpeg", "jpeg": "image/jpeg",
         "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "zip": "application/zip",
     }.get(ext, "application/octet-stream")
 
 
@@ -565,7 +566,7 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
             return []
         COL = {h: i for i, h in enumerate(all_rows[0])}
         result = []
-        for row in all_rows[1:]:
+        for row_idx, row in enumerate(all_rows[1:], start=2):  # fila 2+ en Sheets
             if len(row) < 3:
                 continue
             if (str(row[COL.get("order_id", 0)]) == str(order_id) and
@@ -579,6 +580,7 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
                     "thumb_b64": thumb,
                     "is_image":  row[COL.get("is_image", 6)] == "1" if len(row) > 6 else False,
                     "file_b64":  file_data,
+                    "sheet_row": row_idx,
                 })
         return result
     except Exception as e:
@@ -586,8 +588,47 @@ def _load_evidences_for_act(order_id: int, act_id: int) -> list[dict]:
         return []
 
 
+def _delete_evidence(sheet_row: int, cloudinary_url: str = "") -> bool:
+    """Elimina una evidencia de Sheets y opcionalmente de Cloudinary."""
+    try:
+        # Eliminar de Cloudinary si existe
+        if cloudinary_url and cloudinary_url.startswith("http"):
+            try:
+                import cloudinary
+                import cloudinary.uploader
+                cloudinary.config(
+                    cloud_name=st.secrets["cloudinary"]["cloud_name"],
+                    api_key=st.secrets["cloudinary"]["api_key"],
+                    api_secret=st.secrets["cloudinary"]["api_secret"],
+                    secure=True,
+                )
+                # Extraer public_id de la URL
+                # URL: https://res.cloudinary.com/.../raw/upload/v123/imemsa_evidencias/file.xlsx
+                parts = cloudinary_url.split("/upload/")
+                if len(parts) == 2:
+                    public_id = parts[1].split("/", 1)[1] if "/" in parts[1] else parts[1]
+                    cloudinary.uploader.destroy(public_id, resource_type="raw")
+                    print(f"[CLOUDINARY DELETE] {public_id}")
+            except Exception as e:
+                print(f"[CLOUDINARY DELETE ERROR] {e}")
+
+        # Eliminar fila de Google Sheets
+        ws = _get_evidencias_sheet()
+        if ws:
+            ws.delete_rows(sheet_row)
+            # Invalidar cache
+            st.session_state.pop("_evidencias_rows", None)
+            st.session_state.pop("_evidencias_ws", None)
+            print(f"[EVIDENCE DELETED] Fila {sheet_row}")
+            return True
+        return False
+    except Exception as e:
+        print(f"[EVIDENCE DELETE ERROR] {e}")
+        return False
+
+
 def _render_evidence_gallery(act: dict, order_id: int) -> None:
-    """Muestra la galería de evidencias con botón de descarga."""
+    """Muestra la galería de evidencias con descarga y opción de eliminar."""
     evidences = _load_evidences_for_act(order_id, act["id"])
 
     # Compatibilidad: evidencia antigua solo con nombre
@@ -596,11 +637,15 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
             "name": act["evidence_name"], "user": "—",
             "ts": act.get("completion_date", "—"),
             "thumb_b64": "", "is_image": False, "file_b64": "",
-            "legacy": True,
+            "legacy": True, "sheet_row": 0,
         }]
 
     if not evidences:
         return
+
+    current_user = st.session_state.get("user", {})
+    current_name = current_user.get("name", "")
+    is_admin = current_user.get("role") == "admin"
 
     with st.expander(f"📸  Evidencias  ({len(evidences)})", expanded=False):
         cols = st.columns(min(len(evidences), 3))
@@ -612,6 +657,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                 thumb_b64 = ev.get("thumb_b64", "")
                 is_image  = ev.get("is_image", False)
                 file_b64  = ev.get("file_b64", "")
+                sheet_row = ev.get("sheet_row", 0)
 
                 # ── VISTA PREVIA ──────────────────────────────
                 if ev.get("legacy"):
@@ -633,7 +679,7 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         unsafe_allow_html=True,
                     )
                 else:
-                    ext_icon = {"pdf": "📕", "xlsx": "📊", "docx": "📝"}.get(
+                    ext_icon = {"pdf": "📕", "xlsx": "📊", "docx": "📝", "zip": "📦"}.get(
                         name.lower().split(".")[-1], "📄")
                     st.markdown(
                         f'<div style="padding:10px;background:#F8FAFF;border:1.5px solid #D1D9E8;'
@@ -646,7 +692,6 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
 
                 # ── BOTÓN DE DESCARGA ────────────────────────────
                 if file_b64 and file_b64.startswith("http"):
-                    # ✅ Archivo en Cloudinary — enlace directo
                     st.markdown(
                         f'<a href="{file_b64}" target="_blank" '
                         f'style="display:block;text-align:center;padding:8px 12px;margin-top:6px;'
@@ -661,7 +706,6 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         unsafe_allow_html=True,
                     )
                 elif file_b64:
-                    # 📦 Archivo en base64 (legacy o fallback)
                     try:
                         file_bytes = base64.b64decode(file_b64)
                         mime = _get_mime_type(name)
@@ -676,7 +720,6 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                     except Exception as e:
                         st.caption(f"⚠️ Error: {e}")
                 elif is_image and thumb_b64 and not ev.get("legacy"):
-                    # 🖼️ Descargar miniatura
                     try:
                         thumb_bytes = base64.b64decode(thumb_b64)
                         st.download_button(
@@ -689,6 +732,32 @@ def _render_evidence_gallery(act: dict, order_id: int) -> None:
                         )
                     except Exception as e:
                         st.caption(f"⚠️ Error: {e}")
+
+                # ── BOTÓN ELIMINAR — solo quien subió o admin ────
+                if sheet_row and not ev.get("legacy"):
+                    can_delete = is_admin or user == current_name
+                    if can_delete:
+                        del_key = f"del_{order_id}_{act['id']}_{sheet_row}"
+                        confirm_key = f"confirm_{del_key}"
+                        if st.session_state.get(confirm_key):
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                if st.button("✅ Sí", key=f"yes_{del_key}",
+                                             use_container_width=True):
+                                    cloud_url = file_b64 if file_b64 and file_b64.startswith("http") else ""
+                                    if _delete_evidence(sheet_row, cloud_url):
+                                        st.session_state.pop(confirm_key, None)
+                                        st.rerun()
+                            with c2:
+                                if st.button("❌ No", key=f"no_{del_key}",
+                                             use_container_width=True):
+                                    st.session_state.pop(confirm_key, None)
+                                    st.rerun()
+                        else:
+                            if st.button(f"🗑️ Eliminar", key=del_key,
+                                         use_container_width=True):
+                                st.session_state[confirm_key] = True
+                                st.rerun()
 
 
 def _export_order_excel(order: dict) -> bytes:
@@ -1736,28 +1805,34 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
             with st.form(f"closure_form_{order['id']}_{act['id']}"):
                 notes    = st.text_area("Observaciones / notas de cierre", height=90)
                 evidence = st.file_uploader(
-                    "📸  Adjuntar evidencia (imagen, PDF, Excel…)",
-                    type=["pdf", "png", "jpg", "jpeg", "xlsx", "docx"],
+                    "📸  Adjuntar evidencia (imagen, PDF, Excel, ZIP…)",
+                    type=["pdf", "png", "jpg", "jpeg", "xlsx", "docx", "zip"],
+                    accept_multiple_files=True,
                     key=f"ev_{order['id']}_{act['id']}",
                 )
                 submitted = st.form_submit_button("✅  Enviar solicitud de cierre",
                                                    type="primary", use_container_width=True)
                 if submitted:
                     if not evidence:
-                        st.error("📎 Debes subir una evidencia antes de cerrar la actividad.")
+                        st.error("📎 Debes subir al menos una evidencia antes de cerrar la actividad.")
                         st.stop()
 
-                    ev_bytes = evidence.read()
-                    ev_name  = evidence.name
+                    # Guardar cada archivo de evidencia
+                    ev_names = []
                     with st.spinner("💾 Guardando evidencia…"):
-                        _save_evidence_to_sheets(
-                            order["id"], act["id"],
-                            ev_bytes, ev_name, user["username"],
-                        )
+                        for ev_file in evidence:
+                            ev_bytes = ev_file.read()
+                            ev_name  = ev_file.name
+                            ev_names.append(ev_name)
+                            _save_evidence_to_sheets(
+                                order["id"], act["id"],
+                                ev_bytes, ev_name, user["username"],
+                            )
 
+                    ev_label = ev_names[0] if len(ev_names) == 1 else f"{len(ev_names)} archivos"
                     ok, msg = request_closure(
                         data, order["id"], act["id"],
-                        user["username"], ev_name, None, notes,
+                        user["username"], ev_label, None, notes,
                     )
                     if ok:
                         ok2, msg2, alerts = approve_closure(data, order["id"], act["id"])
@@ -1772,7 +1847,7 @@ def _render_activity_row(act: dict, order: dict, user: dict, data: dict) -> None
                                             break
                             for alert in alerts:
                                 send_activation_email(**alert)
-                            ev_msg = " · Evidencia guardada 📸" if ev_name else ""
+                            ev_msg = f" · Evidencia guardada 📸 ({ev_label})" if ev_names else ""
                             st.success(f"✅ Actividad cerrada. {msg2}{ev_msg}")
                         else:
                             st.warning(msg2)
