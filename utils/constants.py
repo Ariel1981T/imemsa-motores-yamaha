@@ -21,7 +21,7 @@ USERS: dict[str, dict] = {
         "password_hash": _h("Lf280606"),
         "name": "Silverio Olivar",
         "role": "Supervisor",
-        "email": "mercaderia.sroliv@gamil.com",
+        "email": "mercaderia.sroliv@gmail.com",
         "can_create_orders": True,
         "avatar": "SO",
         "color": "#2563EB",
