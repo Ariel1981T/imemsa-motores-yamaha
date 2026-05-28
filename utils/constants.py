@@ -17,7 +17,7 @@ def _h(pw: str) -> str:
     return hashlib.sha256(pw.encode()).hexdigest()
 
 USERS: dict[str, dict] = {
-    "solivar": {
+    "dgonzalez": {
         "password_hash": _h("Lf280606"),
         "name": "Silverio Olivar",
         "role": "Supervisor",
