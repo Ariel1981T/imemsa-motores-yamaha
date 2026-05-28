@@ -17,13 +17,13 @@ def _h(pw: str) -> str:
     return hashlib.sha256(pw.encode()).hexdigest()
 
 USERS: dict[str, dict] = {
-    "dgonzalez": {
+    "solivar": {
         "password_hash": _h("Lf280606"),
-        "name": "David González",
+        "name": "Silverio Olivar",
         "role": "Supervisor",
-        "email": "dgonzalez@imemsa.com.mx",
+        "email": "mercaderia.sroliv@gamil.com",
         "can_create_orders": True,
-        "avatar": "DG",
+        "avatar": "SO",
         "color": "#2563EB",
     },
     "fgarduno": {
