@@ -149,7 +149,7 @@ ACTIVITIES_TEMPLATE: list[dict] = [
         "name": "Pago de motores",
         "description": "Procesar transferencia internacional de pago de los motores conforme sales confirmation.",
         "responsible_key": "kmerino",
-        "days_allocated": 45,
+        "days_allocated": 2,
     },
     {
         "id": 11, "phase": "Embarque y Pago",
