@@ -43,22 +43,8 @@ def _app_data() -> dict:
 
 
 def _apply_data_patches(data: dict) -> None:
-    """Correcciones de datos en pedidos existentes."""
-    patched = False
-    for order in data.get("orders", []):
-        for act in order.get("activities", []):
-            # Actividad 10: Pago de motores — cambiar de 2 a 45 días
-            if act.get("id") == 10 and act.get("days_allocated") == 2:
-                act["days_allocated"] = 45
-                patched = True
-    if patched:
-        try:
-            from utils.sheets_manager import _gsheets_available, save_to_sheets
-            if _gsheets_available():
-                save_to_sheets(data)
-                print("[DATA PATCH] Actividad 10: días 2→45 aplicado y guardado")
-        except Exception as e:
-            print(f"[DATA PATCH] Error al guardar: {e}")
+    """Correcciones de datos — sin parches pendientes."""
+    pass
 
 
 def _app_save(data: dict) -> None:
